@@ -1,0 +1,259 @@
+/* =========================================
+   BEE PURE - GLOBAL STYLES
+   ========================================= */
+
+/* Google Fonts */
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap");
+
+
+/* =========================================
+   RESET
+   ========================================= */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-primary);
+  background-color: var(--color-background);
+  color: var(--color-text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+body,
+button,
+input,
+textarea,
+select {
+  font-family: var(--font-primary);
+}
+
+
+/* =========================================
+   LINKS
+   ========================================= */
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+
+/* =========================================
+   BUTTONS
+   ========================================= */
+
+button {
+  border: none;
+  cursor: pointer;
+}
+
+
+/* =========================================
+   FORM ELEMENTS
+   ========================================= */
+
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+
+/* =========================================
+   IMAGES
+   ========================================= */
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+
+/* =========================================
+   LISTS
+   ========================================= */
+
+ul,
+ol {
+  list-style: none;
+}
+
+
+/* =========================================
+   HEADINGS
+   ========================================= */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+
+/* =========================================
+   CONTAINER
+   ========================================= */
+
+.container {
+  width: min(
+    calc(100% - 40px),
+    var(--container-width)
+  );
+
+  margin-left: auto;
+  margin-right: auto;
+}
+
+
+/* =========================================
+   SECTIONS
+   ========================================= */
+
+.section {
+  padding: 80px 0;
+}
+
+
+/* =========================================
+   SECTION HEADER
+   ========================================= */
+
+.section-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.section-label {
+  display: inline-block;
+
+  margin-bottom: 12px;
+
+  color: var(--color-gold);
+
+  font-size: var(--text-sm);
+  font-weight: 700;
+
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.section-title {
+  color: var(--color-primary-dark);
+  font-size: var(--text-4xl);
+}
+
+.section-description {
+  max-width: 620px;
+
+  margin: 16px auto 0;
+
+  color: var(--color-text-light);
+  font-size: var(--text-base);
+}
+
+
+/* =========================================
+   ACCESSIBILITY
+   ========================================= */
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 3px solid var(--color-gold);
+  outline-offset: 3px;
+}
+
+
+/* =========================================
+   SELECTION
+   ========================================= */
+
+::selection {
+  background: var(--color-gold);
+  color: var(--color-brown);
+}
+
+
+/* =========================================
+   SCROLLBAR
+   ========================================= */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-cream);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border-radius: var(--radius-full);
+}
+
+
+/* =========================================
+   MOBILE
+   ========================================= */
+
+@media (max-width: 768px) {
+
+  .container {
+    width: min(
+      calc(100% - 32px),
+      var(--container-width)
+    );
+  }
+
+  .section {
+    padding: 56px 0;
+  }
+
+  .section-header {
+    margin-bottom: 32px;
+  }
+
+  .section-title {
+    font-size: var(--text-3xl);
+  }
+
+  .section-description {
+    font-size: var(--text-sm);
+  }
+}
+
+
+/* =========================================
+   SMALL MOBILE
+   ========================================= */
+
+@media (max-width: 480px) {
+
+  .container {
+    width: calc(100% - 24px);
+  }
+
+  .section {
+    padding: 48px 0;
+  }
+
+  .section-title {
+    font-size: var(--text-2xl);
+  }
+}

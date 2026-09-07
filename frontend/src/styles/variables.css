@@ -1,0 +1,111 @@
+:root {
+  /* ================================
+     BEE PURE BRAND COLORS
+     ================================ */
+
+  --color-primary: #155d2a;
+  --color-primary-dark: #0d421e;
+  --color-primary-light: #2f7d45;
+
+  --color-gold: #e6a817;
+  --color-gold-light: #f3b51b;
+
+  --color-cream: #fffaf0;
+  --color-white: #ffffff;
+
+  --color-brown: #241b13;
+  --color-brown-light: #6b5b4b;
+
+
+  /* ================================
+     TEXT COLORS
+     ================================ */
+
+  --color-text: #241b13;
+  --color-text-light: #6b5b4b;
+  --color-text-muted: #8b8178;
+
+
+  /* ================================
+     BACKGROUND COLORS
+     ================================ */
+
+  --color-background: #fffaf0;
+  --color-background-light: #ffffff;
+  --color-background-green: #f1f7f2;
+
+
+  /* ================================
+     BORDER
+     ================================ */
+
+  --color-border: #e5dfd5;
+
+
+  /* ================================
+     STATUS COLORS
+     ================================ */
+
+  --color-success: #2e7d32;
+  --color-error: #c62828;
+  --color-warning: #ed9b00;
+
+
+  /* ================================
+     TYPOGRAPHY
+     ================================ */
+
+  --font-primary: "DM Sans", sans-serif;
+  --font-heading: "Playfair Display", serif;
+
+
+  /* ================================
+     FONT SIZES
+     ================================ */
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 2rem;
+  --text-4xl: 2.5rem;
+  --text-5xl: 3.5rem;
+
+
+  /* ================================
+     BORDER RADIUS
+     ================================ */
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 999px;
+
+
+  /* ================================
+     SHADOWS
+     ================================ */
+
+  --shadow-sm: 0 2px 8px rgba(36, 27, 19, 0.08);
+  --shadow-md: 0 8px 24px rgba(36, 27, 19, 0.12);
+  --shadow-lg: 0 16px 40px rgba(36, 27, 19, 0.16);
+
+
+  /* ================================
+     LAYOUT
+     ================================ */
+
+  --container-width: 1200px;
+  --header-height: 76px;
+
+
+  /* ================================
+     TRANSITIONS
+     ================================ */
+
+  --transition-fast: 0.2s ease;
+  --transition-normal: 0.3s ease;
+}
