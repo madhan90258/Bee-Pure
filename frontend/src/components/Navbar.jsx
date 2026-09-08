@@ -7,11 +7,48 @@ import {
   Heart,
 } from "lucide-react";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+
+import { getCartItemCount } from "../utils/cart";
 
 function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // =========================================
+  // CART COUNT
+  // =========================================
+
+  const [cartCount, setCartCount] = useState(
+    getCartItemCount()
+  );
+
+  useEffect(() => {
+    const updateCartCount = () => {
+      setCartCount(getCartItemCount());
+    };
+
+    // Get current count when Navbar loads
+    updateCartCount();
+
+    // Listen for changes from cart.js
+    window.addEventListener(
+      "cartUpdated",
+      updateCartCount
+    );
+
+    // Cleanup
+    return () => {
+      window.removeEventListener(
+        "cartUpdated",
+        updateCartCount
+      );
+    };
+  }, []);
+
+  // =========================================
+  // MOBILE MENU
+  // =========================================
 
   const toggleMenu = () => {
     setIsMenuOpen((prev) => !prev);
@@ -30,7 +67,11 @@ function Navbar() {
           type="button"
           className="navbar-mobile-menu"
           onClick={toggleMenu}
-          aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+          aria-label={
+            isMenuOpen
+              ? "Close menu"
+              : "Open menu"
+          }
           aria-expanded={isMenuOpen}
         >
           {isMenuOpen ? (
@@ -62,7 +103,7 @@ function Navbar() {
 
           <Link
             to="/"
-            className="navbar-link active"
+            className="navbar-link"
           >
             Home
           </Link>
@@ -125,12 +166,12 @@ function Navbar() {
           <Link
             to="/cart"
             className="icon-btn navbar-action navbar-cart"
-            aria-label="Shopping cart"
+            aria-label={`Shopping cart with ${cartCount} items`}
           >
             <ShoppingCart size={21} />
 
             <span className="navbar-cart-count">
-              0
+              {cartCount}
             </span>
           </Link>
 
