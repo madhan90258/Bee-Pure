@@ -1,6 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-
+import { useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
 import {
   ShoppingCart,
   Minus,
@@ -9,19 +8,18 @@ import {
   ShieldCheck,
   Leaf,
   Truck,
-  Check,
+  Heart,
+  Share2,
 } from "lucide-react";
-
-import { addToCart, updateCartQuantity, getCart } from "../utils/cart";
 
 import "../styles/ProductDetails.css";
 
 function ProductDetails() {
   const { id } = useParams();
-  const navigate = useNavigate();
 
   const [quantity, setQuantity] = useState(1);
-  const [addedToCart, setAddedToCart] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [shareMessage, setShareMessage] = useState("");
 
   // =========================================
   // PRODUCTS
@@ -39,7 +37,6 @@ function ProductDetails() {
       description:
         "Pure forest honey collected naturally from trusted local beekeepers. Rich in natural goodness, flavour and nutrients.",
     },
-
     {
       id: 2,
       name: "Raw Organic Honey",
@@ -51,7 +48,6 @@ function ProductDetails() {
       description:
         "Naturally raw and minimally processed honey sourced directly from trusted farmers.",
     },
-
     {
       id: 3,
       name: "Natural Jaggery",
@@ -63,7 +59,6 @@ function ProductDetails() {
       description:
         "Traditional natural jaggery made with care and sourced directly from local producers.",
     },
-
     {
       id: 4,
       name: "Organic Turmeric",
@@ -75,7 +70,6 @@ function ProductDetails() {
       description:
         "Naturally grown turmeric with rich colour, flavour and everyday wellness benefits.",
     },
-
     {
       id: 5,
       name: "Organic A2 Ghee",
@@ -87,7 +81,6 @@ function ProductDetails() {
       description:
         "Traditional A2 ghee made from quality milk and prepared with care.",
     },
-
     {
       id: 6,
       name: "Forest Bee Honey",
@@ -110,6 +103,174 @@ function ProductDetails() {
   );
 
   // =========================================
+  // LOAD FAVORITE STATUS
+  // =========================================
+
+  useEffect(() => {
+    if (!product) {
+      return;
+    }
+
+    const savedFavorites =
+      JSON.parse(
+        localStorage.getItem("beePureFavorites")
+      ) || [];
+
+    const favorite = savedFavorites.some(
+      (favoriteProduct) =>
+        Number(favoriteProduct.id) === product.id
+    );
+
+    setIsFavorite(favorite);
+  }, [product]);
+
+  // =========================================
+  // TOGGLE FAVORITE
+  // =========================================
+
+  const handleFavorite = () => {
+    if (!product) {
+      return;
+    }
+
+    const savedFavorites =
+      JSON.parse(
+        localStorage.getItem("beePureFavorites")
+      ) || [];
+
+    const alreadyFavorite = savedFavorites.some(
+      (favoriteProduct) =>
+        Number(favoriteProduct.id) === product.id
+    );
+
+    let updatedFavorites;
+
+    if (alreadyFavorite) {
+      updatedFavorites = savedFavorites.filter(
+        (favoriteProduct) =>
+          Number(favoriteProduct.id) !== product.id
+      );
+
+      setIsFavorite(false);
+    } else {
+      updatedFavorites = [
+        ...savedFavorites,
+        product,
+      ];
+
+      setIsFavorite(true);
+    }
+
+    localStorage.setItem(
+      "beePureFavorites",
+      JSON.stringify(updatedFavorites)
+    );
+
+    // Tell navbar / other components that favorites changed
+    window.dispatchEvent(
+      new Event("favoritesUpdated")
+    );
+  };
+
+  // =========================================
+  // SHARE PRODUCT
+  // =========================================
+
+  const handleShare = async () => {
+    if (!product) {
+      return;
+    }
+
+    const productUrl =
+      `${window.location.origin}/product/${product.id}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: product.name,
+          text: `Check out ${product.name} from Bee Pure.`,
+          url: productUrl,
+        });
+
+        return;
+      }
+
+      await navigator.clipboard.writeText(productUrl);
+
+      setShareMessage("Product link copied!");
+
+      setTimeout(() => {
+        setShareMessage("");
+      }, 2500);
+    } catch (error) {
+      // User cancelled sharing
+      console.log("Share cancelled.");
+    }
+  };
+
+  // =========================================
+  // ADD TO CART
+  // =========================================
+
+  const handleAddToCart = () => {
+    if (!product) {
+      return;
+    }
+
+    const savedCart =
+      JSON.parse(
+        localStorage.getItem("beePureCart")
+      ) || [];
+
+    const existingProduct = savedCart.find(
+      (cartProduct) =>
+        Number(cartProduct.id) === product.id
+    );
+
+    let updatedCart;
+
+    if (existingProduct) {
+      updatedCart = savedCart.map(
+        (cartProduct) =>
+          Number(cartProduct.id) === product.id
+            ? {
+                ...cartProduct,
+                quantity:
+                  cartProduct.quantity + quantity,
+              }
+            : cartProduct
+      );
+    } else {
+      updatedCart = [
+        ...savedCart,
+        {
+          ...product,
+          quantity,
+        },
+      ];
+    }
+
+    localStorage.setItem(
+      "beePureCart",
+      JSON.stringify(updatedCart)
+    );
+
+    window.dispatchEvent(
+      new Event("cartUpdated")
+    );
+  };
+
+  // =========================================
+  // BUY NOW
+  // =========================================
+
+  const handleBuyNow = () => {
+    handleAddToCart();
+
+    window.location.href = "/checkout";
+  };
+
+  // =========================================
   // PRODUCT NOT FOUND
   // =========================================
 
@@ -122,7 +283,8 @@ function ProductDetails() {
         </h1>
 
         <p>
-          Sorry, we couldn't find the product you're looking for.
+          Sorry, we couldn't find the product
+          you're looking for.
         </p>
 
         <Link to="/shop">
@@ -134,119 +296,14 @@ function ProductDetails() {
     );
   }
 
-  // =========================================
-  // DECREASE QUANTITY
-  // =========================================
-
-  const decreaseQuantity = () => {
-    setQuantity((current) =>
-      Math.max(1, current - 1)
-    );
-  };
-
-  // =========================================
-  // INCREASE QUANTITY
-  // =========================================
-
-  const increaseQuantity = () => {
-    setQuantity((current) =>
-      current + 1
-    );
-  };
-
-  // =========================================
-  // ADD TO CART
-  // =========================================
-
-  const handleAddToCart = () => {
-
-    // Check if product already exists
-    const cart = getCart();
-
-    const existingProduct = cart.find(
-      (item) => item.id === product.id
-    );
-
-    if (existingProduct) {
-
-      // Existing quantity + selected quantity
-      updateCartQuantity(
-        product.id,
-        existingProduct.quantity + quantity
-      );
-
-    } else {
-
-      // Add product first
-      addToCart(product);
-
-      // If selected quantity is more than 1,
-      // update the quantity accordingly.
-      if (quantity > 1) {
-        updateCartQuantity(
-          product.id,
-          quantity
-        );
-      }
-    }
-
-    // Show success state
-    setAddedToCart(true);
-
-    // Go to cart after adding
-    setTimeout(() => {
-      navigate("/cart");
-    }, 500);
-  };
-
-  // =========================================
-  // BUY NOW
-  // =========================================
-
-  const handleBuyNow = () => {
-
-    // Add selected product to cart
-    const cart = getCart();
-
-    const existingProduct = cart.find(
-      (item) => item.id === product.id
-    );
-
-    if (existingProduct) {
-
-      updateCartQuantity(
-        product.id,
-        existingProduct.quantity + quantity
-      );
-
-    } else {
-
-      addToCart(product);
-
-      if (quantity > 1) {
-        updateCartQuantity(
-          product.id,
-          quantity
-        );
-      }
-    }
-
-    // Go directly to checkout
-    navigate("/checkout");
-  };
-
-  // =========================================
-  // RENDER
-  // =========================================
-
   return (
     <main className="product-details-page">
 
       <div className="product-details-container">
 
         {/* =====================================
-            BACK LINK
-        ===================================== */}
+            BACK TO SHOP
+        ====================================== */}
 
         <Link
           to="/shop"
@@ -258,15 +315,14 @@ function ProductDetails() {
 
 
         {/* =====================================
-            PRODUCT DETAILS
-        ===================================== */}
+            PRODUCT
+        ====================================== */}
 
         <section className="product-details">
 
-
           {/* ===================================
               PRODUCT IMAGE
-          =================================== */}
+          ==================================== */}
 
           <div className="product-details-image">
 
@@ -281,32 +337,65 @@ function ProductDetails() {
               </span>
             )}
 
+            {/* IMAGE ACTIONS */}
+
+            <div className="product-image-actions">
+
+              <button
+                type="button"
+                className={`product-icon-button ${
+                  isFavorite
+                    ? "favorite-active"
+                    : ""
+                }`}
+                onClick={handleFavorite}
+                aria-label={
+                  isFavorite
+                    ? "Remove from favorites"
+                    : "Add to favorites"
+                }
+              >
+                <Heart
+                  size={20}
+                  fill={
+                    isFavorite
+                      ? "currentColor"
+                      : "none"
+                  }
+                />
+              </button>
+
+
+              <button
+                type="button"
+                className="product-icon-button"
+                onClick={handleShare}
+                aria-label="Share product"
+              >
+                <Share2 size={20} />
+              </button>
+
+            </div>
+
           </div>
 
 
           {/* ===================================
-              PRODUCT CONTENT
-          =================================== */}
+              PRODUCT INFORMATION
+          ==================================== */}
 
           <div className="product-details-content">
-
-            {/* CATEGORY */}
 
             <p className="product-details-category">
               {product.category}
             </p>
-
-
-            {/* NAME */}
 
             <h1>
               {product.name}
             </h1>
 
 
-            {/* =================================
-                RATING
-            ================================= */}
+            {/* RATING */}
 
             <div className="product-details-rating">
 
@@ -321,9 +410,7 @@ function ProductDetails() {
             </div>
 
 
-            {/* =================================
-                PRICE
-            ================================= */}
+            {/* PRICE */}
 
             <div className="product-details-price">
 
@@ -337,12 +424,22 @@ function ProductDetails() {
                 </del>
               )}
 
+              {product.oldPrice && (
+                <span className="product-discount">
+                  {Math.round(
+                    ((product.oldPrice -
+                      product.price) /
+                      product.oldPrice) *
+                      100
+                  )}
+                  % OFF
+                </span>
+              )}
+
             </div>
 
 
-            {/* =================================
-                DESCRIPTION
-            ================================= */}
+            {/* DESCRIPTION */}
 
             <p className="product-details-description">
               {product.description}
@@ -351,7 +448,7 @@ function ProductDetails() {
 
             {/* =================================
                 QUANTITY
-            ================================= */}
+            ================================== */}
 
             <div className="product-quantity">
 
@@ -361,29 +458,34 @@ function ProductDetails() {
 
               <div className="quantity-control">
 
-                {/* MINUS */}
-
                 <button
                   type="button"
-                  onClick={decreaseQuantity}
+                  onClick={() =>
+                    setQuantity(
+                      (current) =>
+                        Math.max(
+                          1,
+                          current - 1
+                        )
+                    )
+                  }
                   aria-label="Decrease quantity"
                 >
                   <Minus size={15} />
                 </button>
 
-
-                {/* QUANTITY */}
-
                 <strong>
                   {quantity}
                 </strong>
 
-
-                {/* PLUS */}
-
                 <button
                   type="button"
-                  onClick={increaseQuantity}
+                  onClick={() =>
+                    setQuantity(
+                      (current) =>
+                        current + 1
+                    )
+                  }
                   aria-label="Increase quantity"
                 >
                   <Plus size={15} />
@@ -395,39 +497,19 @@ function ProductDetails() {
 
 
             {/* =================================
-                ACTION BUTTONS
-            ================================= */}
+                ACTIONS
+            ================================== */}
 
             <div className="product-actions">
 
-              {/* ADD TO CART */}
-
               <button
                 type="button"
-                className={`product-add-cart ${
-                  addedToCart ? "added" : ""
-                }`}
+                className="product-add-cart"
                 onClick={handleAddToCart}
               >
-
-                {addedToCart ? (
-                  <>
-                    <Check size={18} />
-
-                    Added to Cart
-                  </>
-                ) : (
-                  <>
-                    <ShoppingCart size={18} />
-
-                    Add to Cart
-                  </>
-                )}
-
+                <ShoppingCart size={18} />
+                Add to Cart
               </button>
-
-
-              {/* BUY NOW */}
 
               <button
                 type="button"
@@ -440,21 +522,26 @@ function ProductDetails() {
             </div>
 
 
+            {/* SHARE MESSAGE */}
+
+            {shareMessage && (
+              <p className="product-share-message">
+                {shareMessage}
+              </p>
+            )}
+
+
             {/* =================================
                 BENEFITS
-            ================================= */}
+            ================================== */}
 
             <div className="product-benefits">
-
-
-              {/* NATURAL */}
 
               <div>
 
                 <Leaf size={21} />
 
                 <div>
-
                   <strong>
                     100% Natural
                   </strong>
@@ -462,20 +549,16 @@ function ProductDetails() {
                   <span>
                     Pure & unprocessed
                   </span>
-
                 </div>
 
               </div>
 
-
-              {/* QUALITY */}
 
               <div>
 
                 <ShieldCheck size={21} />
 
                 <div>
-
                   <strong>
                     Quality Assured
                   </strong>
@@ -483,20 +566,16 @@ function ProductDetails() {
                   <span>
                     Carefully sourced
                   </span>
-
                 </div>
 
               </div>
 
-
-              {/* DELIVERY */}
 
               <div>
 
                 <Truck size={21} />
 
                 <div>
-
                   <strong>
                     Safe Delivery
                   </strong>
@@ -504,11 +583,9 @@ function ProductDetails() {
                   <span>
                     Securely packed
                   </span>
-
                 </div>
 
               </div>
-
 
             </div>
 

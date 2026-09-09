@@ -1,0 +1,861 @@
+/* =========================================
+   BEE PURE
+   SELLER MESSAGES
+   ========================================= */
+
+.seller-messages-page {
+  min-height: calc(100vh - var(--header-height));
+  padding: 50px 0 70px;
+
+  background:
+    linear-gradient(
+      180deg,
+      #fffaf0 0%,
+      #f8f5eb 100%
+    );
+}
+
+.seller-messages-container {
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto;
+}
+
+
+/* =========================================
+   HEADER
+   ========================================= */
+
+.seller-messages-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 30px;
+
+  margin-bottom: 32px;
+}
+
+.seller-section-label {
+  display: inline-block;
+
+  margin-bottom: 8px;
+
+  color: var(--color-gold);
+
+  font-size: 11px;
+  font-weight: 800;
+
+  letter-spacing: 0.14em;
+}
+
+.seller-messages-header h1 {
+  margin: 0 0 8px;
+
+  color: var(--color-primary-dark);
+
+  font-family: var(--font-heading);
+
+  font-size: clamp(2rem, 4vw, 2.8rem);
+}
+
+.seller-messages-header p {
+  max-width: 600px;
+
+  margin: 0;
+
+  color: var(--color-text-light);
+
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+
+/* =========================================
+   SUMMARY
+   ========================================= */
+
+.seller-message-summary {
+  display: flex;
+  gap: 12px;
+}
+
+.message-summary-card {
+  min-width: 105px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 14px;
+
+  background: #ffffff;
+
+  border: 1px solid var(--color-border);
+
+  border-radius: 12px;
+
+  color: var(--color-primary);
+}
+
+.message-summary-card.unread {
+  border-color: #f2d47a;
+}
+
+.message-summary-card svg {
+  flex-shrink: 0;
+}
+
+.message-summary-card div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.message-summary-card strong {
+  color: var(--color-primary-dark);
+
+  font-size: 17px;
+}
+
+.message-summary-card span {
+  color: var(--color-text-light);
+
+  font-size: 10px;
+  font-weight: 600;
+}
+
+
+/* =========================================
+   TOOLBAR
+   ========================================= */
+
+.seller-messages-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  margin-bottom: 18px;
+}
+
+.seller-message-search {
+  width: min(420px, 100%);
+
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 11px 14px;
+
+  background: #ffffff;
+
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+
+.seller-message-search svg {
+  flex-shrink: 0;
+
+  color: var(--color-primary);
+}
+
+.seller-message-search input {
+  width: 100%;
+
+  border: none;
+  outline: none;
+
+  background: transparent;
+
+  color: var(--color-text);
+
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.seller-message-search input::placeholder {
+  color: #aaa399;
+}
+
+
+/* =========================================
+   FILTERS
+   ========================================= */
+
+.seller-message-filters {
+  display: flex;
+  gap: 6px;
+
+  padding: 4px;
+
+  background: #f0eadc;
+
+  border-radius: 9px;
+}
+
+.seller-message-filters button {
+  padding: 8px 15px;
+
+  border: none;
+  border-radius: 7px;
+
+  background: transparent;
+
+  color: var(--color-text-light);
+
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.seller-message-filters button.active {
+  background: #ffffff;
+
+  color: var(--color-primary);
+
+  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.06);
+}
+
+
+/* =========================================
+   MESSAGE LIST
+   ========================================= */
+
+.seller-messages-list {
+  display: flex;
+  flex-direction: column;
+
+  gap: 10px;
+}
+
+
+/* =========================================
+   MESSAGE CARD
+   ========================================= */
+
+.seller-message-card {
+  position: relative;
+
+  display: flex;
+  align-items: flex-start;
+
+  gap: 15px;
+
+  padding: 18px;
+
+  background: #ffffff;
+
+  border: 1px solid var(--color-border);
+  border-radius: 13px;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.seller-message-card:hover {
+  transform: translateY(-1px);
+
+  border-color: #d9cba9;
+
+  box-shadow: 0 8px 24px rgba(23, 53, 33, 0.07);
+}
+
+.seller-message-card.unread {
+  border-left: 4px solid var(--color-gold);
+
+  background: #fffdf7;
+}
+
+
+/* =========================================
+   MESSAGE ICON
+   ========================================= */
+
+.seller-message-icon {
+  flex-shrink: 0;
+
+  width: 42px;
+  height: 42px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #f1f7ef;
+
+  border-radius: 50%;
+
+  color: var(--color-primary);
+}
+
+
+/* =========================================
+   MESSAGE CONTENT
+   ========================================= */
+
+.seller-message-content {
+  flex: 1;
+
+  min-width: 0;
+}
+
+.seller-message-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 15px;
+
+  margin-bottom: 5px;
+}
+
+.seller-message-sender {
+  display: flex;
+  align-items: center;
+
+  gap: 9px;
+
+  min-width: 0;
+}
+
+.seller-message-sender h3 {
+  margin: 0;
+
+  color: var(--color-primary-dark);
+
+  font-size: 14px;
+}
+
+.unread-badge {
+  padding: 3px 7px;
+
+  background: #fff1c4;
+
+  color: #8a6500;
+
+  border-radius: 20px;
+
+  font-size: 9px;
+  font-weight: 800;
+
+  text-transform: uppercase;
+}
+
+.seller-message-date {
+  flex-shrink: 0;
+
+  color: #999184;
+
+  font-size: 10px;
+}
+
+.seller-message-content h4 {
+  margin: 0 0 5px;
+
+  color: var(--color-text);
+
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.seller-message-content p {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+
+  overflow: hidden;
+
+  margin: 0;
+
+  color: var(--color-text-light);
+
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+
+/* =========================================
+   CONTACT DETAILS
+   ========================================= */
+
+.seller-message-contact {
+  display: flex;
+  flex-wrap: wrap;
+
+  gap: 14px;
+
+  margin-top: 9px;
+}
+
+.seller-message-contact span {
+  color: #8b857a;
+
+  font-size: 10px;
+}
+
+
+/* =========================================
+   ACTIONS
+   ========================================= */
+
+.seller-message-actions {
+  display: flex;
+  align-items: center;
+
+  gap: 4px;
+}
+
+.seller-message-actions button {
+  width: 34px;
+  height: 34px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+  border-radius: 7px;
+
+  background: transparent;
+
+  color: #777168;
+
+  cursor: pointer;
+
+  transition: 0.2s ease;
+}
+
+.seller-message-actions button:hover {
+  background: #f1f7ef;
+
+  color: var(--color-primary);
+}
+
+.seller-message-actions button.delete:hover {
+  background: #fff0ed;
+
+  color: #b43b2d;
+}
+
+
+/* =========================================
+   EMPTY STATE
+   ========================================= */
+
+.seller-messages-empty {
+  padding: 80px 20px;
+
+  text-align: center;
+
+  background: #ffffff;
+
+  border: 1px dashed var(--color-border);
+
+  border-radius: 14px;
+}
+
+.seller-empty-icon {
+  width: 58px;
+  height: 58px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  margin: 0 auto 15px;
+
+  background: #f1f7ef;
+
+  border-radius: 50%;
+
+  color: var(--color-primary);
+}
+
+.seller-messages-empty h2 {
+  margin: 0 0 7px;
+
+  color: var(--color-primary-dark);
+
+  font-family: var(--font-heading);
+
+  font-size: 1.4rem;
+}
+
+.seller-messages-empty p {
+  max-width: 430px;
+
+  margin: 0 auto;
+
+  color: var(--color-text-light);
+
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+
+/* =========================================
+   MODAL
+   ========================================= */
+
+.seller-message-modal-overlay {
+  position: fixed;
+
+  inset: 0;
+
+  z-index: 2000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+
+  background: rgba(23, 53, 33, 0.45);
+
+  backdrop-filter: blur(5px);
+}
+
+.seller-message-modal {
+  width: min(620px, 100%);
+
+  max-height: 90vh;
+
+  overflow-y: auto;
+
+  background: #ffffff;
+
+  border-radius: 16px;
+
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.2);
+}
+
+
+/* =========================================
+   MODAL HEADER
+   ========================================= */
+
+.seller-message-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  padding: 22px;
+
+  border-bottom: 1px solid var(--color-border);
+}
+
+.seller-message-modal-header span {
+  display: block;
+
+  margin-bottom: 6px;
+
+  color: var(--color-gold);
+
+  font-size: 9px;
+  font-weight: 800;
+
+  letter-spacing: 0.12em;
+}
+
+.seller-message-modal-header h2 {
+  margin: 0;
+
+  color: var(--color-primary-dark);
+
+  font-family: var(--font-heading);
+
+  font-size: 1.35rem;
+}
+
+.seller-message-modal-header button {
+  width: 36px;
+  height: 36px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border: none;
+  border-radius: 50%;
+
+  background: #f5f1e8;
+
+  color: var(--color-text);
+
+  cursor: pointer;
+}
+
+
+/* =========================================
+   MODAL BODY
+   ========================================= */
+
+.seller-message-modal-body {
+  padding: 22px;
+}
+
+.message-detail-row {
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+
+  padding: 11px 0;
+
+  border-bottom: 1px solid #eee8dc;
+}
+
+.message-detail-row svg {
+  flex-shrink: 0;
+
+  color: var(--color-primary);
+}
+
+.message-detail-row div {
+  display: flex;
+  flex-direction: column;
+
+  gap: 2px;
+}
+
+.message-detail-row small {
+  color: #999184;
+
+  font-size: 9px;
+
+  text-transform: uppercase;
+}
+
+.message-detail-row strong {
+  color: var(--color-text);
+
+  font-size: 12px;
+}
+
+.message-full-content {
+  margin-top: 20px;
+}
+
+.message-full-content > span {
+  display: block;
+
+  margin-bottom: 8px;
+
+  color: var(--color-primary-dark);
+
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.message-full-content p {
+  margin: 0;
+
+  padding: 15px;
+
+  background: #faf8f2;
+
+  border-radius: 9px;
+
+  color: var(--color-text);
+
+  font-size: 13px;
+  line-height: 1.75;
+
+  white-space: pre-wrap;
+}
+
+
+/* =========================================
+   MODAL FOOTER
+   ========================================= */
+
+.seller-message-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+
+  gap: 10px;
+
+  padding: 16px 22px;
+
+  border-top: 1px solid var(--color-border);
+}
+
+.message-delete-btn,
+.message-close-btn {
+  display: inline-flex;
+  align-items: center;
+
+  gap: 7px;
+
+  padding: 9px 15px;
+
+  border-radius: 8px;
+
+  font-family: inherit;
+
+  font-size: 11px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.message-delete-btn {
+  border: 1px solid #f0d5d0;
+
+  background: #fff5f3;
+
+  color: #a33a2d;
+}
+
+.message-close-btn {
+  border: none;
+
+  background: var(--color-primary);
+
+  color: #ffffff;
+}
+
+
+/* =========================================
+   TABLET
+   ========================================= */
+
+@media (max-width: 850px) {
+
+  .seller-messages-header {
+    flex-direction: column;
+  }
+
+  .seller-message-summary {
+    width: 100%;
+  }
+
+  .message-summary-card {
+    flex: 1;
+  }
+
+}
+
+
+/* =========================================
+   MOBILE
+   ========================================= */
+
+@media (max-width: 650px) {
+
+  .seller-messages-page {
+    padding: 30px 0 50px;
+  }
+
+  .seller-messages-container {
+    width: min(100% - 24px, 1180px);
+  }
+
+  .seller-messages-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .seller-message-search {
+    width: 100%;
+  }
+
+  .seller-message-filters {
+    width: 100%;
+  }
+
+  .seller-message-filters button {
+    flex: 1;
+  }
+
+  .seller-message-card {
+    padding: 14px;
+
+    gap: 10px;
+  }
+
+  .seller-message-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .seller-message-top {
+    align-items: flex-start;
+    flex-direction: column;
+
+    gap: 4px;
+  }
+
+  .seller-message-date {
+    font-size: 9px;
+  }
+
+  .seller-message-actions {
+    flex-direction: column;
+  }
+
+  .seller-message-summary {
+    gap: 7px;
+  }
+
+  .message-summary-card {
+    min-width: 0;
+
+    padding: 10px;
+  }
+
+  .message-summary-card strong {
+    font-size: 14px;
+  }
+
+  .message-summary-card span {
+    font-size: 9px;
+  }
+
+}
+
+
+/* =========================================
+   SMALL MOBILE
+   ========================================= */
+
+@media (max-width: 430px) {
+
+  .seller-message-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .message-summary-card {
+    justify-content: center;
+  }
+
+  .message-summary-card svg {
+    display: none;
+  }
+
+  .seller-message-contact {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .seller-message-actions button {
+    width: 30px;
+    height: 30px;
+  }
+
+}

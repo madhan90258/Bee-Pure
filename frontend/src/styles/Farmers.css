@@ -1,0 +1,460 @@
+/* =========================================
+   FARMERS PAGE
+========================================= */
+
+.farmers-page {
+  width: 100%;
+  background: #fffaf0;
+  color: #173521;
+}
+
+.farmers-container {
+  width: min(1180px, calc(100% - 60px));
+  margin: 0 auto;
+}
+
+
+/* =========================================
+   HERO
+========================================= */
+
+.farmers-hero {
+  min-height: 570px;
+  display: flex;
+  align-items: center;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(23, 53, 33, 0.94) 0%,
+      rgba(23, 53, 33, 0.78) 45%,
+      rgba(23, 53, 33, 0.25) 100%
+    ),
+    url("/farmers/farmers-hero.jpg")
+    center / cover no-repeat;
+}
+
+.farmers-hero-content {
+  max-width: 620px;
+  padding: 80px 0;
+}
+
+.farmers-eyebrow,
+.farmers-section-eyebrow {
+  margin: 0 0 12px;
+  color: #c28a0c;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+}
+
+.farmers-hero h1 {
+  margin: 0 0 20px;
+  color: #ffffff;
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+  font-size: clamp(44px, 6vw, 70px);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.farmers-hero h1 span {
+  color: #f2b51d;
+}
+
+.farmers-hero-description {
+  max-width: 520px;
+  margin: 0 0 30px;
+  color: #e8eadf;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.farmers-hero-button,
+.farmers-cta-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 13px 20px;
+  border-radius: 8px;
+  background: #f2b51d;
+  color: #173521;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.farmers-hero-button:hover,
+.farmers-cta-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(181, 126, 6, 0.2);
+}
+
+
+/* =========================================
+   INTRO
+========================================= */
+
+.farmers-intro {
+  padding: 90px 0;
+  background: #fffaf0;
+}
+
+.farmers-intro-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  align-items: start;
+}
+
+.farmers-intro-heading h2,
+.farmers-section-header h2,
+.farmers-promise-header h2,
+.farmers-cta h2 {
+  margin: 0;
+  color: #173521;
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+}
+
+.farmers-intro-heading h2 {
+  font-size: clamp(35px, 4vw, 48px);
+}
+
+.farmers-intro-text {
+  padding-top: 20px;
+}
+
+.farmers-intro-text p {
+  margin: 0 0 18px;
+  color: #696257;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+
+/* =========================================
+   FARMERS LIST
+========================================= */
+
+.farmers-list-section {
+  padding: 90px 0;
+  background: #eef0e3;
+}
+
+.farmers-section-header {
+  max-width: 650px;
+  margin-bottom: 45px;
+}
+
+.farmers-section-header h2 {
+  font-size: clamp(35px, 4vw, 48px);
+  margin-bottom: 15px;
+}
+
+.farmers-section-header > p:last-child {
+  max-width: 520px;
+  margin: 0;
+  color: #696257;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+
+/* =========================================
+   FARMER GRID
+========================================= */
+
+.farmers-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.farmer-card {
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e3ddcc;
+  border-radius: 15px;
+}
+
+.farmer-image {
+  width: 100%;
+  height: 310px;
+  overflow: hidden;
+  background: #ddd8c8;
+}
+
+.farmer-image img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.farmer-card:hover .farmer-image img {
+  transform: scale(1.04);
+}
+
+.farmer-content {
+  padding: 23px;
+}
+
+.farmer-specialty {
+  margin: 0 0 7px;
+  color: #c28a0c;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+}
+
+.farmer-content h3 {
+  margin: 0 0 8px;
+  color: #173521;
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+  font-size: 25px;
+  font-weight: 600;
+}
+
+.farmer-location {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 14px;
+  color: #145b34;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.farmer-description {
+  margin: 0;
+  color: #696257;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+
+/* =========================================
+   PROMISE
+========================================= */
+
+.farmers-promise {
+  padding: 90px 0;
+  background: #fffaf0;
+}
+
+.farmers-promise-header {
+  margin-bottom: 42px;
+}
+
+.farmers-promise-header h2 {
+  font-size: clamp(35px, 4vw, 48px);
+}
+
+.farmers-promise-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(3, 1fr);
+  gap: 15px;
+}
+
+.farmers-promise-card {
+  padding: 28px 23px;
+  border: 1px solid #e5ddcc;
+  border-radius: 13px;
+  background: #ffffff;
+}
+
+.farmers-promise-icon {
+  width: 45px;
+  height: 45px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #e5ead6;
+  color: #145b34;
+}
+
+.farmers-promise-card h3 {
+  margin: 0 0 10px;
+  color: #173521;
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+  font-size: 21px;
+}
+
+.farmers-promise-card p {
+  margin: 0;
+  color: #696257;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+
+/* =========================================
+   CTA
+========================================= */
+
+.farmers-cta {
+  padding: 90px 0;
+  background: #173521;
+  text-align: center;
+}
+
+.farmers-cta-content {
+  max-width: 650px;
+  margin: 0 auto;
+}
+
+.farmers-cta h2 {
+  margin-bottom: 17px;
+  color: #ffffff;
+  font-size: clamp(38px, 5vw, 55px);
+}
+
+.farmers-cta h2::first-line {
+  color: #ffffff;
+}
+
+.farmers-cta-content > p:not(.farmers-section-eyebrow) {
+  max-width: 480px;
+  margin: 0 auto 28px;
+  color: #d7ddcf;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+
+/* =========================================
+   TABLET
+========================================= */
+
+@media (max-width: 900px) {
+
+  .farmers-container {
+    width: min(100% - 40px, 760px);
+  }
+
+  .farmers-hero {
+    min-height: 520px;
+  }
+
+  .farmers-intro-grid {
+    gap: 40px;
+  }
+
+  .farmers-grid {
+    gap: 15px;
+  }
+
+  .farmer-image {
+    height: 270px;
+  }
+
+}
+
+
+/* =========================================
+   MOBILE
+========================================= */
+
+@media (max-width: 700px) {
+
+  .farmers-container {
+    width: calc(100% - 32px);
+  }
+
+  .farmers-hero {
+    min-height: 540px;
+  }
+
+  .farmers-hero-content {
+    padding: 60px 0;
+  }
+
+  .farmers-hero h1 {
+    font-size: 43px;
+  }
+
+  .farmers-hero-description {
+    font-size: 13px;
+  }
+
+  .farmers-intro,
+  .farmers-list-section,
+  .farmers-promise,
+  .farmers-cta {
+    padding: 65px 0;
+  }
+
+  .farmers-intro-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .farmers-intro-text {
+    padding-top: 0;
+  }
+
+  .farmers-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .farmer-image {
+    height: 300px;
+  }
+
+  .farmers-promise-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .farmers-promise-card {
+    padding: 23px;
+  }
+
+}
+
+
+/* =========================================
+   SMALL PHONES
+========================================= */
+
+@media (max-width: 400px) {
+
+  .farmers-container {
+    width: calc(100% - 24px);
+  }
+
+  .farmers-hero h1 {
+    font-size: 36px;
+  }
+
+  .farmer-image {
+    height: 260px;
+  }
+
+  .farmer-content h3 {
+    font-size: 22px;
+  }
+
+}

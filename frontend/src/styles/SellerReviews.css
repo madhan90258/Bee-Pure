@@ -1,0 +1,740 @@
+/* =========================================
+   SELLER REVIEWS
+========================================= */
+
+.seller-reviews-page {
+  min-height: calc(100vh - 80px);
+  background: #faf8f2;
+  padding: 42px 20px 70px;
+}
+
+.seller-reviews-container {
+  width: min(1200px, 100%);
+  margin: 0 auto;
+}
+
+
+/* =========================================
+   HEADER
+========================================= */
+
+.seller-reviews-header {
+  margin-bottom: 28px;
+}
+
+.seller-reviews-eyebrow {
+  margin: 0 0 6px;
+
+  color: #c28b16;
+
+  font-size: 12px;
+  font-weight: 800;
+
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.seller-reviews-header h1 {
+  margin: 0;
+
+  color: #173521;
+
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.1;
+}
+
+.seller-reviews-subtitle {
+  margin: 10px 0 0;
+
+  color: #766f62;
+
+  font-size: 14px;
+}
+
+
+/* =========================================
+   STATS
+========================================= */
+
+.seller-review-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+
+  gap: 16px;
+
+  margin-bottom: 24px;
+}
+
+.seller-review-stat-card {
+  padding: 20px 22px;
+
+  background: #ffffff;
+
+  border: 1px solid #e8dfce;
+  border-radius: 14px;
+
+  box-shadow: 0 5px 18px rgba(23, 53, 33, 0.05);
+}
+
+.seller-review-stat-card span {
+  display: block;
+
+  margin-bottom: 7px;
+
+  color: #817a6e;
+
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.seller-review-stat-card strong {
+  color: #173521;
+
+  font-size: 28px;
+}
+
+.rating-small {
+  display: inline !important;
+
+  margin-left: 3px;
+
+  color: #8b8478 !important;
+
+  font-size: 13px !important;
+}
+
+
+/* =========================================
+   TOOLBAR
+========================================= */
+
+.seller-reviews-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 15px;
+
+  margin-bottom: 18px;
+}
+
+.seller-review-search {
+  width: min(480px, 100%);
+
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 11px 13px;
+
+  background: #ffffff;
+
+  border: 1px solid #e1d8c8;
+  border-radius: 10px;
+}
+
+.seller-review-search > svg {
+  flex-shrink: 0;
+
+  color: #66806b;
+}
+
+.seller-review-search input {
+  flex: 1;
+
+  min-width: 0;
+
+  border: none;
+  outline: none;
+
+  background: transparent;
+
+  color: #173521;
+
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.seller-review-search input::placeholder {
+  color: #a19a8d;
+}
+
+.seller-review-search button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 3px;
+
+  border: none;
+
+  background: transparent;
+
+  color: #766f62;
+
+  cursor: pointer;
+}
+
+.seller-review-result-count {
+  color: #847d71;
+
+  font-size: 13px;
+  font-weight: 600;
+}
+
+
+/* =========================================
+   REVIEW LIST
+========================================= */
+
+.seller-reviews-list {
+  display: flex;
+  flex-direction: column;
+
+  gap: 12px;
+}
+
+
+/* =========================================
+   REVIEW CARD
+========================================= */
+
+.seller-review-card {
+  display: grid;
+
+  grid-template-columns:
+    1.1fr
+    1fr
+    2fr
+    auto
+    auto;
+
+  align-items: center;
+
+  gap: 22px;
+
+  padding: 20px;
+
+  background: #ffffff;
+
+  border: 1px solid #e7dfd1;
+  border-radius: 14px;
+
+  box-shadow: 0 4px 15px rgba(23, 53, 33, 0.04);
+
+  transition: 0.2s ease;
+}
+
+.seller-review-card:hover {
+  border-color: #d9cdb8;
+
+  box-shadow:
+    0 8px 24px rgba(23, 53, 33, 0.08);
+}
+
+.seller-review-card.review-hidden {
+  opacity: 0.62;
+}
+
+
+/* =========================================
+   LABEL
+========================================= */
+
+.seller-review-label {
+  display: block;
+
+  margin-bottom: 5px;
+
+  color: #9a9285;
+
+  font-size: 9px;
+  font-weight: 800;
+
+  letter-spacing: 0.1em;
+}
+
+
+/* =========================================
+   PRODUCT
+========================================= */
+
+.seller-review-product strong {
+  color: #173521;
+
+  font-size: 14px;
+}
+
+
+/* =========================================
+   CUSTOMER
+========================================= */
+
+.seller-review-customer {
+  display: flex;
+  flex-direction: column;
+}
+
+.seller-review-customer strong {
+  color: #253c2b;
+
+  font-size: 13px;
+}
+
+.seller-review-customer small {
+  margin-top: 3px;
+
+  color: #938c80;
+
+  font-size: 11px;
+}
+
+
+/* =========================================
+   REVIEW CONTENT
+========================================= */
+
+.seller-review-rating {
+  display: flex;
+  align-items: center;
+
+  gap: 8px;
+
+  margin-bottom: 7px;
+}
+
+.seller-review-stars {
+  display: flex;
+  align-items: center;
+
+  gap: 2px;
+
+  color: #e3a917;
+}
+
+.seller-review-rating > span {
+  color: #756e62;
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.seller-review-content p {
+  margin: 0 0 6px;
+
+  color: #514b42;
+
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.seller-review-content small {
+  color: #999185;
+
+  font-size: 10px;
+}
+
+
+/* =========================================
+   STATUS
+========================================= */
+
+.status-visible,
+.status-hidden {
+  display: inline-flex;
+
+  align-items: center;
+
+  padding: 5px 9px;
+
+  border-radius: 999px;
+
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.status-visible {
+  background: #eaf5ec;
+  color: #26703d;
+}
+
+.status-hidden {
+  background: #f1eee8;
+  color: #827a6e;
+}
+
+
+/* =========================================
+   ACTIONS
+========================================= */
+
+.seller-review-actions {
+  display: flex;
+  align-items: center;
+
+  gap: 5px;
+}
+
+.seller-review-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 34px;
+  height: 34px;
+
+  border: 1px solid #e2dacd;
+  border-radius: 8px;
+
+  background: #ffffff;
+
+  cursor: pointer;
+
+  transition: 0.2s ease;
+}
+
+.review-view-btn {
+  color: #37614a;
+}
+
+.review-toggle-btn {
+  color: #8b6b24;
+}
+
+.review-delete-btn {
+  color: #a44235;
+}
+
+.seller-review-actions button:hover {
+  background: #f7f3ea;
+}
+
+
+/* =========================================
+   EMPTY
+========================================= */
+
+.seller-reviews-empty {
+  padding: 70px 20px;
+
+  text-align: center;
+
+  background: #ffffff;
+
+  border: 1px dashed #d9d0c0;
+  border-radius: 14px;
+}
+
+.seller-reviews-empty svg {
+  margin-bottom: 12px;
+
+  color: #c8bda9;
+}
+
+.seller-reviews-empty h3 {
+  margin: 0 0 6px;
+
+  color: #304634;
+
+  font-size: 18px;
+}
+
+.seller-reviews-empty p {
+  margin: 0;
+
+  color: #8b8376;
+
+  font-size: 13px;
+}
+
+
+/* =========================================
+   MODAL
+========================================= */
+
+.seller-review-modal-overlay {
+  position: fixed;
+
+  inset: 0;
+
+  z-index: 3000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+
+  background: rgba(20, 35, 25, 0.48);
+}
+
+.seller-review-modal {
+  width: min(500px, 100%);
+
+  overflow: hidden;
+
+  background: #ffffff;
+
+  border-radius: 16px;
+
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+
+/* =========================================
+   MODAL HEADER
+========================================= */
+
+.seller-review-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  padding: 22px;
+
+  border-bottom: 1px solid #eee7db;
+}
+
+.seller-review-modal-header span {
+  color: #b0801a;
+
+  font-size: 10px;
+  font-weight: 800;
+
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.seller-review-modal-header h2 {
+  margin: 5px 0 0;
+
+  color: #173521;
+
+  font-size: 20px;
+}
+
+.seller-review-modal-header button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 34px;
+  height: 34px;
+
+  border: none;
+  border-radius: 50%;
+
+  background: #f4f1e9;
+
+  color: #5d584e;
+
+  cursor: pointer;
+}
+
+
+/* =========================================
+   MODAL BODY
+========================================= */
+
+.seller-review-modal-body {
+  padding: 24px;
+}
+
+.modal-customer {
+  display: flex;
+  flex-direction: column;
+
+  gap: 3px;
+
+  margin-bottom: 18px;
+}
+
+.modal-customer strong {
+  color: #233d2b;
+
+  font-size: 14px;
+}
+
+.modal-customer span {
+  color: #918a7f;
+
+  font-size: 12px;
+}
+
+.modal-rating {
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+
+  margin-bottom: 18px;
+}
+
+.modal-rating strong {
+  color: #6d665b;
+
+  font-size: 12px;
+}
+
+.modal-review-text {
+  margin: 0;
+
+  padding: 17px;
+
+  background: #faf8f2;
+
+  border-radius: 10px;
+
+  color: #50493f;
+
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.modal-review-date {
+  margin-top: 14px;
+
+  color: #9a9286;
+
+  font-size: 11px;
+}
+
+
+/* =========================================
+   MODAL FOOTER
+========================================= */
+
+.seller-review-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+
+  gap: 9px;
+
+  padding: 16px 22px;
+
+  background: #faf8f2;
+
+  border-top: 1px solid #eee7db;
+}
+
+.seller-review-modal-footer button {
+  display: inline-flex;
+  align-items: center;
+
+  gap: 7px;
+
+  padding: 10px 14px;
+
+  border-radius: 8px;
+
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.modal-toggle-btn {
+  border: 1px solid #d8cfbf;
+
+  background: #ffffff;
+
+  color: #3e6049;
+}
+
+.modal-delete-btn {
+  border: 1px solid #c9a7a1;
+
+  background: #fff8f7;
+
+  color: #a44235;
+}
+
+
+/* =========================================
+   TABLET
+========================================= */
+
+@media (max-width: 1000px) {
+
+  .seller-review-card {
+    grid-template-columns: 1fr 1fr;
+
+    align-items: start;
+  }
+
+  .seller-review-content {
+    grid-column: 1 / -1;
+  }
+
+  .seller-review-status {
+    align-self: center;
+  }
+
+  .seller-review-actions {
+    justify-content: flex-end;
+  }
+
+}
+
+
+/* =========================================
+   MOBILE
+========================================= */
+
+@media (max-width: 650px) {
+
+  .seller-reviews-page {
+    padding: 28px 14px 50px;
+  }
+
+  .seller-review-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .seller-reviews-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .seller-review-search {
+    width: 100%;
+  }
+
+  .seller-review-card {
+    grid-template-columns: 1fr;
+
+    gap: 15px;
+
+    padding: 17px;
+  }
+
+  .seller-review-content {
+    grid-column: auto;
+  }
+
+  .seller-review-status {
+    justify-self: start;
+  }
+
+  .seller-review-actions {
+    justify-content: flex-start;
+
+    padding-top: 3px;
+  }
+
+  .seller-review-modal-footer {
+    flex-direction: column;
+  }
+
+  .seller-review-modal-footer button {
+    justify-content: center;
+
+    width: 100%;
+  }
+
+}

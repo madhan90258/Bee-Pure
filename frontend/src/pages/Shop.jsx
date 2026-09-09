@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   ShoppingCart,
   ArrowRight,
@@ -21,6 +21,18 @@ function Shop() {
   const [cart, setCart] = useState([]);
   const [addedProduct, setAddedProduct] = useState(null);
 
+  // =========================================
+  // SEARCH PARAMETER
+  // =========================================
+
+  const [searchParams] = useSearchParams();
+
+  const searchQuery = searchParams.get("search") || "";
+
+  // =========================================
+  // PRODUCTS
+  // =========================================
+
   const products = [
     {
       id: 1,
@@ -30,6 +42,8 @@ function Shop() {
       oldPrice: 599,
       image: "/products/forest-honey.jpg",
       rating: 5,
+      description:
+        "Pure forest honey collected naturally from trusted local beekeepers. Rich in natural goodness, flavour and nutrients.",
     },
     {
       id: 2,
@@ -39,6 +53,8 @@ function Shop() {
       oldPrice: null,
       image: "/products/raw-honey.jpg",
       rating: 5,
+      description:
+        "Naturally raw and minimally processed honey sourced directly from trusted farmers.",
     },
     {
       id: 3,
@@ -48,6 +64,8 @@ function Shop() {
       oldPrice: 299,
       image: "/products/jaggery.jpg",
       rating: 4,
+      description:
+        "Traditional natural jaggery made with care and sourced directly from local producers.",
     },
     {
       id: 4,
@@ -57,6 +75,8 @@ function Shop() {
       oldPrice: null,
       image: "/products/turmeric.jpg",
       rating: 5,
+      description:
+        "Naturally grown turmeric with rich colour, flavour and everyday wellness benefits.",
     },
     {
       id: 5,
@@ -66,6 +86,8 @@ function Shop() {
       oldPrice: 799,
       image: "/products/ghee.jpg",
       rating: 5,
+      description:
+        "Traditional A2 ghee made from quality milk and prepared with care.",
     },
     {
       id: 6,
@@ -75,8 +97,35 @@ function Shop() {
       oldPrice: null,
       image: "/products/forest-bee-honey.jpg",
       rating: 5,
+      description:
+        "Authentic forest honey with a naturally rich taste, sourced from local beekeepers.",
     },
   ];
+
+  // =========================================
+  // SEARCH FILTER
+  // =========================================
+
+  const filteredProducts = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    // No search = show all products
+    if (!query) {
+      return products;
+    }
+
+    return products.filter((product) => {
+      const name = product.name.toLowerCase();
+      const category = product.category.toLowerCase();
+      const description = product.description.toLowerCase();
+
+      return (
+        name.includes(query) ||
+        category.includes(query) ||
+        description.includes(query)
+      );
+    });
+  }, [searchQuery]);
 
   // =========================================
   // LOAD CART
@@ -117,7 +166,6 @@ function Shop() {
 
     setCart(updatedCart);
 
-    // Show "Added" briefly
     setAddedProduct(product.id);
 
     setTimeout(() => {
@@ -250,186 +298,234 @@ function Shop() {
             </div>
 
             <p className="shop-product-count">
-              {products.length} products
+              {filteredProducts.length}{" "}
+              {filteredProducts.length === 1
+                ? "product"
+                : "products"}
             </p>
 
           </div>
 
 
           {/* =========================================
+              SEARCH RESULTS MESSAGE
+          ========================================= */}
+
+          {searchQuery.trim() && (
+            <div className="shop-search-result">
+
+              <p>
+                Search results for{" "}
+                <strong>
+                  "{searchQuery}"
+                </strong>
+              </p>
+
+            </div>
+          )}
+
+
+          {/* =========================================
               PRODUCT GRID
           ========================================= */}
 
-          <div className="shop-product-grid">
+          {filteredProducts.length > 0 ? (
 
-            {products.map((product) => {
+            <div className="shop-product-grid">
 
-              const quantity = getProductQuantity(
-                product.id
-              );
+              {filteredProducts.map((product) => {
 
-              const isAdded =
-                addedProduct === product.id;
+                const quantity =
+                  getProductQuantity(product.id);
 
-              return (
-                <article
-                  className="shop-product-card"
-                  key={product.id}
-                >
+                const isAdded =
+                  addedProduct === product.id;
 
-                  {/* PRODUCT IMAGE */}
-
-                  <Link
-                    to={`/product/${product.id}`}
-                    className="shop-product-image"
+                return (
+                  <article
+                    className="shop-product-card"
+                    key={product.id}
                   >
 
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      loading="lazy"
-                    />
-
-                    {product.oldPrice && (
-                      <span className="shop-sale-badge">
-                        SALE
-                      </span>
-                    )}
-
-                  </Link>
-
-
-                  {/* PRODUCT CONTENT */}
-
-                  <div className="shop-product-content">
-
-                    <p className="shop-product-category">
-                      {product.category}
-                    </p>
+                    {/* PRODUCT IMAGE */}
 
                     <Link
                       to={`/product/${product.id}`}
-                      className="shop-product-name"
+                      className="shop-product-image"
                     >
-                      {product.name}
+
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        loading="lazy"
+                      />
+
+                      {product.oldPrice && (
+                        <span className="shop-sale-badge">
+                          SALE
+                        </span>
+                      )}
+
                     </Link>
 
 
-                    {/* RATING */}
+                    {/* PRODUCT CONTENT */}
 
-                    <div className="shop-product-rating">
+                    <div className="shop-product-content">
 
-                      <span className="stars">
-                        {"★".repeat(product.rating)}
-                      </span>
+                      <p className="shop-product-category">
+                        {product.category}
+                      </p>
 
-                      <span>
-                        ({product.rating}.0)
-                      </span>
+                      <Link
+                        to={`/product/${product.id}`}
+                        className="shop-product-name"
+                      >
+                        {product.name}
+                      </Link>
 
-                    </div>
 
+                      {/* RATING */}
 
-                    {/* PRICE + CART */}
+                      <div className="shop-product-rating">
 
-                    <div className="shop-product-bottom">
+                        <span className="stars">
+                          {"★".repeat(product.rating)}
+                        </span>
 
-                      <div className="shop-price">
-
-                        <strong>
-                          ₹{product.price}
-                        </strong>
-
-                        {product.oldPrice && (
-                          <del>
-                            ₹{product.oldPrice}
-                          </del>
-                        )}
+                        <span>
+                          ({product.rating}.0)
+                        </span>
 
                       </div>
 
 
-                      {/* =================================
-                          CART BUTTON
-                      ================================= */}
+                      {/* PRICE + CART */}
 
-                      {quantity === 0 ? (
+                      <div className="shop-product-bottom">
 
-                        /* ADD TO CART */
+                        <div className="shop-price">
 
-                        <button
-                          type="button"
-                          className={`shop-add-cart ${
-                            isAdded ? "added" : ""
-                          }`}
-                          onClick={() =>
-                            handleAddToCart(product)
-                          }
-                          aria-label={`Add ${product.name} to cart`}
-                        >
+                          <strong>
+                            ₹{product.price}
+                          </strong>
 
-                          {isAdded ? (
-                            <>
-                              <Check size={17} />
-                              <span>Added</span>
-                            </>
-                          ) : (
-                            <>
-                              <ShoppingCart size={17} />
-                              <span>Add to Cart</span>
-                            </>
+                          {product.oldPrice && (
+                            <del>
+                              ₹{product.oldPrice}
+                            </del>
                           )}
-
-                        </button>
-
-                      ) : (
-
-                        /* QUANTITY CONTROL */
-
-                        <div
-                          className="shop-quantity-control"
-                          aria-label={`Quantity of ${product.name}`}
-                        >
-
-                          <button
-                            type="button"
-                            className="shop-quantity-btn"
-                            onClick={() =>
-                              handleDecrease(product)
-                            }
-                            aria-label={`Decrease ${product.name} quantity`}
-                          >
-                            <Minus size={15} />
-                          </button>
-
-                          <span className="shop-quantity">
-                            {quantity}
-                          </span>
-
-                          <button
-                            type="button"
-                            className="shop-quantity-btn"
-                            onClick={() =>
-                              handleIncrease(product)
-                            }
-                            aria-label={`Increase ${product.name} quantity`}
-                          >
-                            <Plus size={15} />
-                          </button>
 
                         </div>
 
-                      )}
+
+                        {/* CART BUTTON */}
+
+                        {quantity === 0 ? (
+
+                          <button
+                            type="button"
+                            className={`shop-add-cart ${
+                              isAdded ? "added" : ""
+                            }`}
+                            onClick={() =>
+                              handleAddToCart(product)
+                            }
+                            aria-label={`Add ${product.name} to cart`}
+                          >
+
+                            {isAdded ? (
+                              <>
+                                <Check size={17} />
+                                <span>Added</span>
+                              </>
+                            ) : (
+                              <>
+                                <ShoppingCart size={17} />
+                                <span>
+                                  Add to Cart
+                                </span>
+                              </>
+                            )}
+
+                          </button>
+
+                        ) : (
+
+                          <div
+                            className="shop-quantity-control"
+                            aria-label={`Quantity of ${product.name}`}
+                          >
+
+                            <button
+                              type="button"
+                              className="shop-quantity-btn"
+                              onClick={() =>
+                                handleDecrease(product)
+                              }
+                              aria-label={`Decrease ${product.name} quantity`}
+                            >
+                              <Minus size={15} />
+                            </button>
+
+                            <span className="shop-quantity">
+                              {quantity}
+                            </span>
+
+                            <button
+                              type="button"
+                              className="shop-quantity-btn"
+                              onClick={() =>
+                                handleIncrease(product)
+                              }
+                              aria-label={`Increase ${product.name} quantity`}
+                            >
+                              <Plus size={15} />
+                            </button>
+
+                          </div>
+
+                        )}
+
+                      </div>
 
                     </div>
 
-                  </div>
+                  </article>
+                );
+              })}
 
-                </article>
-              );
-            })}
+            </div>
 
-          </div>
+          ) : (
+
+            /* =========================================
+               NO SEARCH RESULTS
+            ========================================= */
+
+            <div className="shop-no-results">
+
+              <h2>
+                No products found
+              </h2>
+
+              <p>
+                We couldn't find any products matching{" "}
+                <strong>
+                  "{searchQuery}"
+                </strong>.
+              </p>
+
+              <Link
+                to="/shop"
+                className="shop-no-results-button"
+              >
+                View All Products
+              </Link>
+
+            </div>
+
+          )}
 
 
           {/* =========================================

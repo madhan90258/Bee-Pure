@@ -1,0 +1,414 @@
+/* =========================================
+   FAVORITES PAGE
+========================================= */
+
+.favorites-page {
+  min-height: 70vh;
+  padding: 60px 0;
+  background: #fffaf0;
+}
+
+.favorites-container {
+  width: min(1180px, calc(100% - 60px));
+  margin: 0 auto;
+}
+
+
+/* =========================================
+   HEADER
+========================================= */
+
+.favorites-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 35px;
+}
+
+.favorites-eyebrow {
+  margin: 0 0 8px;
+  color: #c28a0c;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .15em;
+}
+
+.favorites-header h1 {
+  margin: 0 0 8px;
+  color: #173521;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 36px;
+}
+
+.favorites-header p:last-child {
+  margin: 0;
+  color: #696257;
+  font-size: 14px;
+}
+
+.favorites-continue {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+
+  color: #145b34;
+
+  font-size: 13px;
+  font-weight: 700;
+
+  text-decoration: none;
+}
+
+
+/* =========================================
+   FAVORITES GRID
+========================================= */
+
+.favorites-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+
+  gap: 22px;
+}
+
+
+/* =========================================
+   CARD
+========================================= */
+
+.favorite-card {
+  overflow: hidden;
+
+  background: #ffffff;
+
+  border: 1px solid #e8dfce;
+  border-radius: 14px;
+
+  transition:
+    transform .2s ease,
+    box-shadow .2s ease;
+}
+
+.favorite-card:hover {
+  transform: translateY(-3px);
+
+  box-shadow:
+    0 10px 25px rgba(23, 53, 33, .08);
+}
+
+
+/* =========================================
+   IMAGE
+========================================= */
+
+.favorite-image {
+  position: relative;
+
+  height: 260px;
+
+  background: #f0eadb;
+}
+
+.favorite-image a {
+  display: block;
+
+  width: 100%;
+  height: 100%;
+}
+
+.favorite-image img {
+  display: block;
+
+  width: 100%;
+  height: 100%;
+
+  object-fit: cover;
+}
+
+
+/* =========================================
+   REMOVE BUTTON
+========================================= */
+
+.favorite-remove {
+  position: absolute;
+
+  top: 12px;
+  right: 12px;
+
+  width: 38px;
+  height: 38px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid #e8dfce;
+  border-radius: 50%;
+
+  background: #ffffff;
+
+  color: #a85416;
+
+  cursor: pointer;
+
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, .08);
+
+  transition: .2s ease;
+}
+
+.favorite-remove:hover {
+  background: #a85416;
+  color: #ffffff;
+}
+
+
+/* =========================================
+   CONTENT
+========================================= */
+
+.favorite-content {
+  padding: 18px;
+}
+
+.favorite-category {
+  display: block;
+
+  margin-bottom: 6px;
+
+  color: #c28a0c;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  text-transform: uppercase;
+}
+
+.favorite-name {
+  display: block;
+
+  margin-bottom: 8px;
+
+  color: #173521;
+
+  font-family: Georgia, "Times New Roman", serif;
+
+  font-size: 20px;
+  font-weight: 700;
+
+  text-decoration: none;
+}
+
+.favorite-name:hover {
+  color: #145b34;
+}
+
+
+/* =========================================
+   RATING
+========================================= */
+
+.favorite-rating {
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+
+  margin-bottom: 10px;
+}
+
+.favorite-rating span {
+  color: #f2b51d;
+
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+
+.favorite-rating small {
+  color: #777065;
+
+  font-size: 10px;
+}
+
+
+/* =========================================
+   PRICE
+========================================= */
+
+.favorite-price {
+  display: flex;
+  align-items: center;
+
+  gap: 9px;
+
+  margin-bottom: 15px;
+}
+
+.favorite-price strong {
+  color: #a85416;
+
+  font-size: 17px;
+}
+
+.favorite-price del {
+  color: #999184;
+
+  font-size: 12px;
+}
+
+
+/* =========================================
+   VIEW PRODUCT
+========================================= */
+
+.favorite-cart-button {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 7px;
+
+  width: 100%;
+
+  padding: 11px;
+
+  border-radius: 8px;
+
+  background: #173521;
+  color: #ffffff;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  text-decoration: none;
+
+  transition: .2s ease;
+}
+
+.favorite-cart-button:hover {
+  background: #145b34;
+}
+
+
+/* =========================================
+   EMPTY
+========================================= */
+
+.favorites-empty {
+  width: min(600px, calc(100% - 40px));
+
+  margin: 80px auto;
+
+  padding: 50px 30px;
+
+  text-align: center;
+
+  background: #ffffff;
+
+  border: 1px solid #e8dfce;
+  border-radius: 16px;
+}
+
+.favorites-empty-icon {
+  width: 75px;
+  height: 75px;
+
+  margin: 0 auto 20px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #e5ead6;
+  color: #145b34;
+}
+
+.favorites-empty h1 {
+  margin: 0 0 10px;
+
+  color: #173521;
+
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.favorites-empty p {
+  max-width: 420px;
+
+  margin: 0 auto 25px;
+
+  color: #696257;
+
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.favorites-shop-button {
+  display: inline-block;
+
+  padding: 12px 24px;
+
+  border-radius: 7px;
+
+  background: #f2b51d;
+  color: #173521;
+
+  font-size: 13px;
+  font-weight: 700;
+
+  text-decoration: none;
+}
+
+
+/* =========================================
+   TABLET
+========================================= */
+
+@media (max-width: 900px) {
+
+  .favorites-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+}
+
+
+/* =========================================
+   MOBILE
+========================================= */
+
+@media (max-width: 600px) {
+
+  .favorites-page {
+    padding: 40px 0;
+  }
+
+  .favorites-container {
+    width: calc(100% - 32px);
+  }
+
+  .favorites-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .favorites-header h1 {
+    font-size: 29px;
+  }
+
+  .favorites-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .favorite-image {
+    height: 240px;
+  }
+
+}
