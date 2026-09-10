@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+
 import {
   MapPin,
   Navigation,
@@ -20,7 +21,9 @@ import {
 
 import "../styles/Checkout.css";
 
+
 function Checkout() {
+
   const [cart, setCart] = useState([]);
 
   const [formData, setFormData] = useState({
@@ -33,8 +36,14 @@ function Checkout() {
     pincode: "",
   });
 
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [locationMessage, setLocationMessage] = useState("");
+  const [errors, setErrors] = useState({});
+
+  const [locationLoading, setLocationLoading] =
+    useState(false);
+
+  const [locationMessage, setLocationMessage] =
+    useState("");
+
 
   // =========================================
   // LOAD CART
@@ -44,55 +53,377 @@ function Checkout() {
     setCart(getCart());
   }, []);
 
+
+  // =========================================
+  // VALIDATE FIELD
+  // =========================================
+
+  const validateField = (name, value) => {
+
+    let error = "";
+
+    switch (name) {
+
+      // ---------------------------------------
+      // FULL NAME
+      // ---------------------------------------
+
+      case "fullName":
+
+        if (!value.trim()) {
+
+          error = "Please enter your full name.";
+
+        } else if (
+          !/^[A-Za-z\s.'-]+$/.test(value.trim())
+        ) {
+
+          error =
+            "Name can contain only letters and spaces.";
+
+        } else if (value.trim().length < 2) {
+
+          error =
+            "Name must be at least 2 characters.";
+
+        } else if (value.trim().length > 50) {
+
+          error =
+            "Name must be less than 50 characters.";
+
+        }
+
+        break;
+
+
+      // ---------------------------------------
+      // EMAIL
+      // ---------------------------------------
+
+      case "email":
+
+        if (!value.trim()) {
+
+          error =
+            "Please enter your email address.";
+
+        } else if (
+          !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(
+            value.trim()
+          )
+        ) {
+
+          error =
+            "Please enter a valid email address.";
+
+        }
+
+        break;
+
+
+      // ---------------------------------------
+      // PHONE
+      // ---------------------------------------
+
+      case "phone": {
+
+        const cleanPhone =
+          value.replace(/\D/g, "");
+
+        if (!value.trim()) {
+
+          error =
+            "Please enter your phone number.";
+
+        } else if (
+          !/^[6-9]\d{9}$/.test(cleanPhone)
+        ) {
+
+          error =
+            "Please enter a valid 10-digit Indian mobile number.";
+
+        }
+
+        break;
+      }
+
+
+      // ---------------------------------------
+      // ADDRESS
+      // ---------------------------------------
+
+      case "address":
+
+        if (!value.trim()) {
+
+          error =
+            "Please enter your complete address.";
+
+        } else if (value.trim().length < 10) {
+
+          error =
+            "Please enter a more complete address.";
+
+        } else if (value.trim().length > 250) {
+
+          error =
+            "Address must be less than 250 characters.";
+
+        }
+
+        break;
+
+
+      // ---------------------------------------
+      // CITY
+      // ---------------------------------------
+
+      case "city":
+
+        if (!value.trim()) {
+
+          error =
+            "Please enter your city.";
+
+        } else if (
+          !/^[A-Za-z\s.'-]+$/.test(value.trim())
+        ) {
+
+          error =
+            "City can contain only letters.";
+
+        } else if (value.trim().length < 2) {
+
+          error =
+            "Please enter a valid city.";
+
+        }
+
+        break;
+
+
+      // ---------------------------------------
+      // STATE
+      // ---------------------------------------
+
+      case "state":
+
+        if (!value.trim()) {
+
+          error =
+            "Please enter your state.";
+
+        } else if (
+          !/^[A-Za-z\s.'-]+$/.test(value.trim())
+        ) {
+
+          error =
+            "State can contain only letters.";
+
+        } else if (value.trim().length < 2) {
+
+          error =
+            "Please enter a valid state.";
+
+        }
+
+        break;
+
+
+      // ---------------------------------------
+      // PINCODE
+      // ---------------------------------------
+
+      case "pincode":
+
+        if (!value.trim()) {
+
+          error =
+            "Please enter your pincode.";
+
+        } else if (!/^\d{6}$/.test(value.trim())) {
+
+          error =
+            "Pincode must contain exactly 6 digits.";
+
+        }
+
+        break;
+
+
+      default:
+        break;
+    }
+
+    return error;
+  };
+
+
+  // =========================================
+  // VALIDATE COMPLETE FORM
+  // =========================================
+
+  const validateForm = () => {
+
+    const newErrors = {};
+
+    Object.keys(formData).forEach((field) => {
+
+      const error = validateField(
+        field,
+        formData[field]
+      );
+
+      if (error) {
+        newErrors[field] = error;
+      }
+
+    });
+
+    setErrors(newErrors);
+
+    return Object.keys(newErrors).length === 0;
+  };
+
+
   // =========================================
   // HANDLE INPUT
   // =========================================
 
   const handleChange = (event) => {
-    const { name, value } = event.target;
 
-    setFormData((current) => ({
+    const {
+      name,
+      value,
+    } = event.target;
+
+
+    // Phone: allow only numbers
+    if (name === "phone") {
+
+      const numericValue =
+        value.replace(/\D/g, "").slice(0, 10);
+
+      setFormData((current) => ({
+        ...current,
+        [name]: numericValue,
+      }));
+
+    }
+
+    // Pincode: allow only numbers
+    else if (name === "pincode") {
+
+      const numericValue =
+        value.replace(/\D/g, "").slice(0, 6);
+
+      setFormData((current) => ({
+        ...current,
+        [name]: numericValue,
+      }));
+
+    }
+
+    else {
+
+      setFormData((current) => ({
+        ...current,
+        [name]: value,
+      }));
+
+    }
+
+
+    // Clear current error
+    setErrors((current) => ({
       ...current,
-      [name]: value,
+      [name]: "",
     }));
+
   };
+
+
+  // =========================================
+  // HANDLE BLUR
+  // =========================================
+
+  const handleBlur = (event) => {
+
+    const {
+      name,
+      value,
+    } = event.target;
+
+    const error = validateField(
+      name,
+      value
+    );
+
+    setErrors((current) => ({
+      ...current,
+      [name]: error,
+    }));
+
+  };
+
 
   // =========================================
   // USE LIVE LOCATION
   // =========================================
 
   const handleUseLocation = () => {
+
     if (!navigator.geolocation) {
+
       setLocationMessage(
         "Live location is not supported by your browser."
       );
+
       return;
     }
 
+
     setLocationLoading(true);
-    setLocationMessage("Getting your location...");
+
+    setLocationMessage(
+      "Getting your location..."
+    );
+
 
     navigator.geolocation.getCurrentPosition(
+
       async (position) => {
-        const { latitude, longitude } = position.coords;
+
+        const {
+          latitude,
+          longitude,
+        } = position.coords;
+
 
         try {
-          /*
-           * Reverse geocoding using OpenStreetMap.
-           *
-           * This is only for getting the readable
-           * address from the user's coordinates.
-           */
 
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
           );
 
-          const data = await response.json();
 
-          const address = data.address || {};
+          if (!response.ok) {
+            throw new Error(
+              "Unable to get location address."
+            );
+          }
+
+
+          const data =
+            await response.json();
+
+
+          const address =
+            data.address || {};
+
 
           setFormData((current) => ({
+
             ...current,
 
             address:
@@ -103,6 +434,7 @@ function Checkout() {
               address.city ||
               address.town ||
               address.village ||
+              address.municipality ||
               current.city,
 
             state:
@@ -112,12 +444,28 @@ function Checkout() {
             pincode:
               address.postcode ||
               current.pincode,
+
           }));
+
+
+          // Clear address-related errors
+          setErrors((current) => ({
+            ...current,
+            address: "",
+            city: "",
+            state: "",
+            pincode: "",
+          }));
+
 
           setLocationMessage(
             "Location added successfully."
           );
-        } catch (error) {
+
+        }
+
+        catch (error) {
+
           console.error(
             "Location address error:",
             error
@@ -126,31 +474,46 @@ function Checkout() {
           setLocationMessage(
             "Location found, but we couldn't get the address. Please enter it manually."
           );
-        } finally {
-          setLocationLoading(false);
+
         }
+
+        finally {
+
+          setLocationLoading(false);
+
+        }
+
       },
 
+
       (error) => {
+
         console.error(
           "Geolocation error:",
           error
         );
 
+
         setLocationLoading(false);
+
 
         setLocationMessage(
           "Unable to access your location. Please allow location permission or enter your address manually."
         );
+
       },
+
 
       {
         enableHighAccuracy: true,
         timeout: 10000,
         maximumAge: 0,
       }
+
     );
+
   };
+
 
   // =========================================
   // ORDER TOTALS
@@ -159,15 +522,9 @@ function Checkout() {
   const subtotal = getCartTotal();
 
   const shipping =
-    subtotal >= 999 ? 0 : 60;
-
-  /*
-   * Coupon support is intentionally kept ready.
-   *
-   * If your cart already stores the applied coupon,
-   * replace this value with your existing coupon
-   * calculation.
-   */
+    subtotal >= 999
+      ? 0
+      : 60;
 
   const couponDiscount = 0;
 
@@ -176,31 +533,63 @@ function Checkout() {
     shipping -
     couponDiscount;
 
+
   // =========================================
   // PLACE ORDER
   // =========================================
 
   const handlePlaceOrder = (event) => {
+
     event.preventDefault();
+
+
+    const isValid =
+      validateForm();
+
+
+    if (!isValid) {
+
+      // Scroll to first error
+      const firstError =
+        document.querySelector(
+          ".checkout-field-error"
+        );
+
+      if (firstError) {
+
+        firstError.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+
+      }
+
+      return;
+    }
+
 
     if (cart.length === 0) {
       return;
     }
+
 
     console.log(
       "Customer details:",
       formData
     );
 
+
     console.log(
       "Order:",
       cart
     );
 
+
     console.log(
       "Total:",
       total
     );
+
 
     /*
      * Razorpay will be connected here later.
@@ -209,15 +598,20 @@ function Checkout() {
     alert(
       "Order details saved. Payment gateway will be connected next."
     );
+
   };
+
 
   // =========================================
   // EMPTY CART
   // =========================================
 
   if (cart.length === 0) {
+
     return (
+
       <main className="checkout-page">
+
         <div className="checkout-empty">
 
           <ShoppingBag size={40} />
@@ -236,18 +630,24 @@ function Checkout() {
           </Link>
 
         </div>
+
       </main>
+
     );
+
   }
+
 
   // =========================================
   // CHECKOUT
   // =========================================
 
   return (
+
     <main className="checkout-page">
 
       <div className="checkout-container">
+
 
         {/* =====================================
             HEADER
@@ -272,12 +672,16 @@ function Checkout() {
 
           </div>
 
+
           <Link
             to="/cart"
             className="checkout-back"
           >
+
             <ArrowLeft size={16} />
+
             Back to Cart
+
           </Link>
 
         </div>
@@ -290,19 +694,27 @@ function Checkout() {
         <form
           className="checkout-layout"
           onSubmit={handlePlaceOrder}
+          noValidate
         >
 
+
           {/* ===================================
-              CUSTOMER DETAILS
+              DELIVERY DETAILS
           =================================== */}
 
           <section className="checkout-card">
 
+
+            {/* CARD HEADER */}
+
             <div className="checkout-card-header">
 
               <div className="checkout-card-icon">
+
                 <User size={18} />
+
               </div>
+
 
               <div>
 
@@ -319,9 +731,14 @@ function Checkout() {
             </div>
 
 
-            {/* NAME */}
+            {/* =================================
+                CUSTOMER DETAILS
+            ================================= */}
 
             <div className="checkout-form-grid">
+
+
+              {/* FULL NAME */}
 
               <div className="checkout-field">
 
@@ -329,9 +746,20 @@ function Checkout() {
                   Full Name
                 </label>
 
-                <div className="checkout-input-wrapper">
 
-                  <User size={16} />
+                <div
+                  className={`checkout-input-wrapper ${
+                    errors.fullName
+                      ? "has-error"
+                      : ""
+                  }`}
+                >
+
+                  <User
+                    size={16}
+                    aria-hidden="true"
+                  />
+
 
                   <input
                     id="fullName"
@@ -340,10 +768,24 @@ function Checkout() {
                     placeholder="Enter your full name"
                     value={formData.fullName}
                     onChange={handleChange}
-                    required
+                    onBlur={handleBlur}
+                    autoComplete="name"
+                    maxLength="50"
+                    aria-invalid={Boolean(
+                      errors.fullName
+                    )}
                   />
 
                 </div>
+
+
+                {errors.fullName && (
+
+                  <span className="checkout-field-error">
+                    {errors.fullName}
+                  </span>
+
+                )}
 
               </div>
 
@@ -356,21 +798,47 @@ function Checkout() {
                   Phone Number
                 </label>
 
-                <div className="checkout-input-wrapper">
 
-                  <Phone size={16} />
+                <div
+                  className={`checkout-input-wrapper ${
+                    errors.phone
+                      ? "has-error"
+                      : ""
+                  }`}
+                >
+
+                  <Phone
+                    size={16}
+                    aria-hidden="true"
+                  />
+
 
                   <input
                     id="phone"
                     name="phone"
                     type="tel"
-                    placeholder="Enter phone number"
+                    placeholder="10-digit mobile number"
                     value={formData.phone}
                     onChange={handleChange}
-                    required
+                    onBlur={handleBlur}
+                    autoComplete="tel"
+                    inputMode="numeric"
+                    maxLength="10"
+                    aria-invalid={Boolean(
+                      errors.phone
+                    )}
                   />
 
                 </div>
+
+
+                {errors.phone && (
+
+                  <span className="checkout-field-error">
+                    {errors.phone}
+                  </span>
+
+                )}
 
               </div>
 
@@ -383,9 +851,20 @@ function Checkout() {
                   Email Address
                 </label>
 
-                <div className="checkout-input-wrapper">
 
-                  <Mail size={16} />
+                <div
+                  className={`checkout-input-wrapper ${
+                    errors.email
+                      ? "has-error"
+                      : ""
+                  }`}
+                >
+
+                  <Mail
+                    size={16}
+                    aria-hidden="true"
+                  />
+
 
                   <input
                     id="email"
@@ -394,10 +873,23 @@ function Checkout() {
                     placeholder="Enter your email address"
                     value={formData.email}
                     onChange={handleChange}
-                    required
+                    onBlur={handleBlur}
+                    autoComplete="email"
+                    aria-invalid={Boolean(
+                      errors.email
+                    )}
                   />
 
                 </div>
+
+
+                {errors.email && (
+
+                  <span className="checkout-field-error">
+                    {errors.email}
+                  </span>
+
+                )}
 
               </div>
 
@@ -405,7 +897,7 @@ function Checkout() {
 
 
             {/* =================================
-                ADDRESS
+                DELIVERY ADDRESS HEADER
             ================================= */}
 
             <div className="checkout-address-header">
@@ -422,6 +914,7 @@ function Checkout() {
                 </p>
 
               </div>
+
 
               <button
                 type="button"
@@ -441,14 +934,23 @@ function Checkout() {
             </div>
 
 
+            {/* LOCATION MESSAGE */}
+
             {locationMessage && (
+
               <p className="checkout-location-message">
                 {locationMessage}
               </p>
+
             )}
 
 
+            {/* =================================
+                ADDRESS FIELDS
+            ================================= */}
+
             <div className="checkout-form-grid">
+
 
               {/* ADDRESS */}
 
@@ -458,9 +960,20 @@ function Checkout() {
                   Address
                 </label>
 
-                <div className="checkout-input-wrapper checkout-textarea-wrapper">
 
-                  <Home size={16} />
+                <div
+                  className={`checkout-input-wrapper checkout-textarea-wrapper ${
+                    errors.address
+                      ? "has-error"
+                      : ""
+                  }`}
+                >
+
+                  <Home
+                    size={16}
+                    aria-hidden="true"
+                  />
+
 
                   <textarea
                     id="address"
@@ -468,10 +981,23 @@ function Checkout() {
                     placeholder="House / Flat / Street / Area"
                     value={formData.address}
                     onChange={handleChange}
-                    required
+                    onBlur={handleBlur}
+                    maxLength="250"
+                    aria-invalid={Boolean(
+                      errors.address
+                    )}
                   />
 
                 </div>
+
+
+                {errors.address && (
+
+                  <span className="checkout-field-error">
+                    {errors.address}
+                  </span>
+
+                )}
 
               </div>
 
@@ -484,6 +1010,7 @@ function Checkout() {
                   City
                 </label>
 
+
                 <input
                   id="city"
                   name="city"
@@ -491,8 +1018,27 @@ function Checkout() {
                   placeholder="City"
                   value={formData.city}
                   onChange={handleChange}
-                  required
+                  onBlur={handleBlur}
+                  autoComplete="address-level2"
+                  maxLength="50"
+                  className={
+                    errors.city
+                      ? "input-error"
+                      : ""
+                  }
+                  aria-invalid={Boolean(
+                    errors.city
+                  )}
                 />
+
+
+                {errors.city && (
+
+                  <span className="checkout-field-error">
+                    {errors.city}
+                  </span>
+
+                )}
 
               </div>
 
@@ -505,6 +1051,7 @@ function Checkout() {
                   State
                 </label>
 
+
                 <input
                   id="state"
                   name="state"
@@ -512,8 +1059,27 @@ function Checkout() {
                   placeholder="State"
                   value={formData.state}
                   onChange={handleChange}
-                  required
+                  onBlur={handleBlur}
+                  autoComplete="address-level1"
+                  maxLength="50"
+                  className={
+                    errors.state
+                      ? "input-error"
+                      : ""
+                  }
+                  aria-invalid={Boolean(
+                    errors.state
+                  )}
                 />
+
+
+                {errors.state && (
+
+                  <span className="checkout-field-error">
+                    {errors.state}
+                  </span>
+
+                )}
 
               </div>
 
@@ -526,6 +1092,7 @@ function Checkout() {
                   Pincode
                 </label>
 
+
                 <input
                   id="pincode"
                   name="pincode"
@@ -535,15 +1102,35 @@ function Checkout() {
                   placeholder="6-digit pincode"
                   value={formData.pincode}
                   onChange={handleChange}
-                  required
+                  onBlur={handleBlur}
+                  autoComplete="postal-code"
+                  className={
+                    errors.pincode
+                      ? "input-error"
+                      : ""
+                  }
+                  aria-invalid={Boolean(
+                    errors.pincode
+                  )}
                 />
+
+
+                {errors.pincode && (
+
+                  <span className="checkout-field-error">
+                    {errors.pincode}
+                  </span>
+
+                )}
 
               </div>
 
             </div>
 
 
-            {/* LOCATION INFO */}
+            {/* =================================
+                LOCATION INFO
+            ================================= */}
 
             <div className="checkout-location-info">
 
@@ -566,6 +1153,9 @@ function Checkout() {
 
           <aside className="checkout-summary">
 
+
+            {/* SUMMARY HEADER */}
+
             <div className="checkout-summary-header">
 
               <div>
@@ -579,6 +1169,7 @@ function Checkout() {
                 </h2>
 
               </div>
+
 
               <span>
                 {cart.length}{" "}
@@ -614,6 +1205,7 @@ function Checkout() {
 
                   </div>
 
+
                   <div className="checkout-product-info">
 
                     <strong>
@@ -630,12 +1222,15 @@ function Checkout() {
 
                   </div>
 
+
                   <strong className="checkout-product-total">
+
                     ₹
                     {(
                       product.price *
                       product.quantity
                     ).toLocaleString("en-IN")}
+
                   </strong>
 
                 </div>
@@ -672,19 +1267,24 @@ function Checkout() {
                 </span>
 
                 {shipping === 0 ? (
+
                   <strong className="checkout-free">
                     FREE
                   </strong>
+
                 ) : (
+
                   <strong>
                     ₹{shipping}
                   </strong>
+
                 )}
 
               </div>
 
 
               {couponDiscount > 0 && (
+
                 <div>
 
                   <span>
@@ -699,12 +1299,13 @@ function Checkout() {
                   </strong>
 
                 </div>
+
               )}
 
             </div>
 
 
-            {/* FINAL TOTAL */}
+            {/* GRAND TOTAL */}
 
             <div className="checkout-grand-total">
 
@@ -728,10 +1329,15 @@ function Checkout() {
               type="submit"
               className="checkout-place-order"
             >
+
               <Lock size={16} />
+
               Continue to Payment
+
             </button>
 
+
+            {/* SECURE MESSAGE */}
 
             <p className="checkout-secure">
 
@@ -749,7 +1355,9 @@ function Checkout() {
       </div>
 
     </main>
+
   );
 }
+
 
 export default Checkout;

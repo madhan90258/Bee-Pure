@@ -19,7 +19,97 @@ function Contact() {
     message: "",
   });
 
+  const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
+
+  // =========================================
+  // VALIDATE INDIVIDUAL FIELD
+  // =========================================
+
+  const validateField = (name, value) => {
+    let error = "";
+
+    switch (name) {
+      case "name":
+        if (!value.trim()) {
+          error = "Please enter your name.";
+        } else if (!/^[A-Za-z\s.'-]+$/.test(value.trim())) {
+          error = "Name can contain only letters and spaces.";
+        } else if (value.trim().length < 2) {
+          error = "Name must be at least 2 characters.";
+        } else if (value.trim().length > 50) {
+          error = "Name must be less than 50 characters.";
+        }
+        break;
+
+      case "email":
+        if (!value.trim()) {
+          error = "Please enter your email address.";
+        } else if (
+          !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim())
+        ) {
+          error = "Please enter a valid email address.";
+        }
+        break;
+
+      case "phone":
+        if (value.trim()) {
+          const cleanPhone = value.replace(/\D/g, "");
+
+          if (cleanPhone.length !== 10) {
+            error = "Phone number must contain 10 digits.";
+          } else if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+            error = "Please enter a valid Indian mobile number.";
+          }
+        }
+        break;
+
+      case "subject":
+        if (!value) {
+          error = "Please select a subject.";
+        }
+        break;
+
+      case "message":
+        if (!value.trim()) {
+          error = "Please enter your message.";
+        } else if (value.trim().length < 10) {
+          error = "Message must be at least 10 characters.";
+        } else if (value.trim().length > 1000) {
+          error = "Message must be less than 1000 characters.";
+        }
+        break;
+
+      default:
+        break;
+    }
+
+    return error;
+  };
+
+  // =========================================
+  // VALIDATE ENTIRE FORM
+  // =========================================
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    Object.keys(formData).forEach((field) => {
+      const error = validateField(field, formData[field]);
+
+      if (error) {
+        newErrors[field] = error;
+      }
+    });
+
+    setErrors(newErrors);
+
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // =========================================
+  // HANDLE INPUT CHANGE
+  // =========================================
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -28,10 +118,43 @@ function Contact() {
       ...current,
       [name]: value,
     }));
+
+    // Remove error as user starts correcting field
+    setErrors((current) => ({
+      ...current,
+      [name]: "",
+    }));
+
+    setSubmitted(false);
   };
+
+  // =========================================
+  // HANDLE FIELD BLUR
+  // =========================================
+
+  const handleBlur = (event) => {
+    const { name, value } = event.target;
+
+    const error = validateField(name, value);
+
+    setErrors((current) => ({
+      ...current,
+      [name]: error,
+    }));
+  };
+
+  // =========================================
+  // HANDLE FORM SUBMIT
+  // =========================================
 
   const handleSubmit = (event) => {
     event.preventDefault();
+
+    const isValid = validateForm();
+
+    if (!isValid) {
+      return;
+    }
 
     setSubmitted(true);
 
@@ -42,6 +165,8 @@ function Contact() {
       subject: "",
       message: "",
     });
+
+    setErrors({});
 
     setTimeout(() => {
       setSubmitted(false);
@@ -84,7 +209,7 @@ function Contact() {
 
 
       {/* =========================================
-          CONTACT CONTENT
+          CONTACT SECTION
       ========================================= */}
 
       <section className="contact-section">
@@ -177,7 +302,7 @@ function Contact() {
               </div>
 
 
-              {/* HOURS */}
+              {/* BUSINESS HOURS */}
 
               <div className="contact-info-item">
 
@@ -236,8 +361,11 @@ function Contact() {
               </div>
 
 
+              {/* SUCCESS MESSAGE */}
+
               {submitted && (
                 <div className="contact-success">
+
                   <strong>
                     Message sent successfully!
                   </strong>
@@ -245,13 +373,19 @@ function Contact() {
                   <span>
                     Thank you for reaching out to Bee Pure.
                   </span>
+
                 </div>
               )}
 
 
-              <form onSubmit={handleSubmit}>
+              <form
+                onSubmit={handleSubmit}
+                noValidate
+              >
 
-                {/* NAME */}
+                {/* =================================
+                    NAME
+                ================================= */}
 
                 <div className="contact-form-group">
 
@@ -266,15 +400,41 @@ function Contact() {
                     placeholder="Enter your name"
                     value={formData.name}
                     onChange={handleChange}
-                    required
+                    onBlur={handleBlur}
+                    autoComplete="name"
+                    maxLength="50"
+                    className={
+                      errors.name
+                        ? "input-error"
+                        : ""
+                    }
+                    aria-invalid={Boolean(errors.name)}
+                    aria-describedby={
+                      errors.name
+                        ? "name-error"
+                        : undefined
+                    }
                   />
+
+                  {errors.name && (
+                    <span
+                      id="name-error"
+                      className="contact-field-error"
+                    >
+                      {errors.name}
+                    </span>
+                  )}
 
                 </div>
 
 
-                {/* EMAIL + PHONE */}
+                {/* =================================
+                    EMAIL + PHONE
+                ================================= */}
 
                 <div className="contact-form-row">
+
+                  {/* EMAIL */}
 
                   <div className="contact-form-group">
 
@@ -289,11 +449,34 @@ function Contact() {
                       placeholder="you@example.com"
                       value={formData.email}
                       onChange={handleChange}
-                      required
+                      onBlur={handleBlur}
+                      autoComplete="email"
+                      className={
+                        errors.email
+                          ? "input-error"
+                          : ""
+                      }
+                      aria-invalid={Boolean(errors.email)}
+                      aria-describedby={
+                        errors.email
+                          ? "email-error"
+                          : undefined
+                      }
                     />
+
+                    {errors.email && (
+                      <span
+                        id="email-error"
+                        className="contact-field-error"
+                      >
+                        {errors.email}
+                      </span>
+                    )}
 
                   </div>
 
+
+                  {/* PHONE */}
 
                   <div className="contact-form-group">
 
@@ -305,17 +488,43 @@ function Contact() {
                       id="phone"
                       name="phone"
                       type="tel"
-                      placeholder="+91"
+                      placeholder="10 digit mobile number"
                       value={formData.phone}
                       onChange={handleChange}
+                      onBlur={handleBlur}
+                      autoComplete="tel"
+                      inputMode="numeric"
+                      maxLength="10"
+                      className={
+                        errors.phone
+                          ? "input-error"
+                          : ""
+                      }
+                      aria-invalid={Boolean(errors.phone)}
+                      aria-describedby={
+                        errors.phone
+                          ? "phone-error"
+                          : undefined
+                      }
                     />
+
+                    {errors.phone && (
+                      <span
+                        id="phone-error"
+                        className="contact-field-error"
+                      >
+                        {errors.phone}
+                      </span>
+                    )}
 
                   </div>
 
                 </div>
 
 
-                {/* SUBJECT */}
+                {/* =================================
+                    SUBJECT
+                ================================= */}
 
                 <div className="contact-form-group">
 
@@ -328,7 +537,18 @@ function Contact() {
                     name="subject"
                     value={formData.subject}
                     onChange={handleChange}
-                    required
+                    onBlur={handleBlur}
+                    className={
+                      errors.subject
+                        ? "input-error"
+                        : ""
+                    }
+                    aria-invalid={Boolean(errors.subject)}
+                    aria-describedby={
+                      errors.subject
+                        ? "subject-error"
+                        : undefined
+                    }
                   >
 
                     <option value="">
@@ -357,10 +577,21 @@ function Contact() {
 
                   </select>
 
+                  {errors.subject && (
+                    <span
+                      id="subject-error"
+                      className="contact-field-error"
+                    >
+                      {errors.subject}
+                    </span>
+                  )}
+
                 </div>
 
 
-                {/* MESSAGE */}
+                {/* =================================
+                    MESSAGE
+                ================================= */}
 
                 <div className="contact-form-group">
 
@@ -375,21 +606,56 @@ function Contact() {
                     placeholder="How can we help you?"
                     value={formData.message}
                     onChange={handleChange}
-                    required
+                    onBlur={handleBlur}
+                    maxLength="1000"
+                    className={
+                      errors.message
+                        ? "input-error"
+                        : ""
+                    }
+                    aria-invalid={Boolean(errors.message)}
+                    aria-describedby={
+                      errors.message
+                        ? "message-error"
+                        : undefined
+                    }
                   />
+
+                  <div className="contact-message-footer">
+
+                    {errors.message ? (
+                      <span
+                        id="message-error"
+                        className="contact-field-error"
+                      >
+                        {errors.message}
+                      </span>
+                    ) : (
+                      <span />
+                    )}
+
+                    <span className="contact-character-count">
+                      {formData.message.length}/1000
+                    </span>
+
+                  </div>
 
                 </div>
 
 
-                {/* SUBMIT */}
+                {/* =================================
+                    SUBMIT
+                ================================= */}
 
                 <button
                   type="submit"
                   className="contact-submit"
                 >
+
                   <Send size={17} />
 
                   Send Message
+
                 </button>
 
               </form>

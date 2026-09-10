@@ -10,20 +10,70 @@ import {
   Edit3,
 } from "lucide-react";
 
-import { Link } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+} from "react-router-dom";
+
+import { useState } from "react";
 
 import "../styles/Account.css";
 
 function Account() {
+  const navigate = useNavigate();
+
   // =========================================
-  // TEMPORARY USER DATA
-  // This will later come from Supabase Auth
+  // USER DATA
   // =========================================
 
-  const user = {
+  const [user, setUser] = useState({
     name: "Bee Pure Customer",
     email: "customer@example.com",
     phone: "+91 98765 43210",
+  });
+
+  const [isEditing, setIsEditing] = useState(false);
+
+  const [editName, setEditName] = useState(
+    user.name
+  );
+
+  const [editPhone, setEditPhone] = useState(
+    user.phone
+  );
+
+  // =========================================
+  // EDIT PROFILE
+  // =========================================
+
+  const handleEdit = () => {
+    setEditName(user.name);
+    setEditPhone(user.phone);
+    setIsEditing(true);
+  };
+
+  const handleSaveProfile = () => {
+    if (!editName.trim()) {
+      return;
+    }
+
+    if (!editPhone.trim()) {
+      return;
+    }
+
+    setUser((current) => ({
+      ...current,
+      name: editName.trim(),
+      phone: editPhone.trim(),
+    }));
+
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditName(user.name);
+    setEditPhone(user.phone);
+    setIsEditing(false);
   };
 
   // =========================================
@@ -31,8 +81,20 @@ function Account() {
   // =========================================
 
   const handleLogout = () => {
-    // Supabase logout will be added later
-    console.log("Logout clicked");
+    // Remove temporary customer login state
+    localStorage.removeItem("customerLoggedIn");
+    localStorage.removeItem("beePureUser");
+
+    // Redirect to Home
+    navigate("/", {
+      replace: true,
+    });
+
+    // Make sure page starts at the top
+    window.scrollTo({
+      top: 0,
+      behavior: "auto",
+    });
   };
 
   return (
@@ -98,60 +160,181 @@ function Account() {
 
               </div>
 
-              <button
-                type="button"
-                className="account-edit-button"
-                aria-label="Edit profile"
-              >
-                <Edit3 size={16} />
-                Edit
-              </button>
+              {!isEditing ? (
+
+                <button
+                  type="button"
+                  className="account-edit-button"
+                  aria-label="Edit profile"
+                  onClick={handleEdit}
+                >
+                  <Edit3 size={16} />
+                  Edit
+                </button>
+
+              ) : (
+
+                <div className="account-edit-actions">
+
+                  <button
+                    type="button"
+                    className="account-edit-button"
+                    onClick={handleSaveProfile}
+                  >
+                    Save
+                  </button>
+
+                  <button
+                    type="button"
+                    className="account-edit-button"
+                    onClick={handleCancelEdit}
+                  >
+                    Cancel
+                  </button>
+
+                </div>
+
+              )}
 
             </div>
 
 
-            {/* USER DETAILS */}
+            {/* =====================================
+                EDIT FORM
+            ====================================== */}
 
-            <div className="account-profile-details">
+            {isEditing ? (
 
-              <div className="account-detail">
+              <div className="account-profile-details">
 
-                <div className="account-detail-icon">
-                  <Mail size={17} />
+                <div className="account-detail">
+
+                  <div className="account-detail-icon">
+                    <User size={17} />
+                  </div>
+
+                  <div>
+
+                    <span>
+                      Name
+                    </span>
+
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(event) =>
+                        setEditName(
+                          event.target.value
+                        )
+                      }
+                    />
+
+                  </div>
+
                 </div>
 
-                <div>
-                  <span>
-                    Email
-                  </span>
 
-                  <strong>
-                    {user.email}
-                  </strong>
+                <div className="account-detail">
+
+                  <div className="account-detail-icon">
+                    <Phone size={17} />
+                  </div>
+
+                  <div>
+
+                    <span>
+                      Phone
+                    </span>
+
+                    <input
+                      type="tel"
+                      value={editPhone}
+                      onChange={(event) =>
+                        setEditPhone(
+                          event.target.value
+                        )
+                      }
+                    />
+
+                  </div>
+
+                </div>
+
+
+                <div className="account-detail">
+
+                  <div className="account-detail-icon">
+                    <Mail size={17} />
+                  </div>
+
+                  <div>
+
+                    <span>
+                      Email
+                    </span>
+
+                    <strong>
+                      {user.email}
+                    </strong>
+
+                  </div>
+
                 </div>
 
               </div>
 
+            ) : (
 
-              <div className="account-detail">
+              /* =====================================
+                 USER DETAILS
+              ====================================== */
 
-                <div className="account-detail-icon">
-                  <Phone size={17} />
+              <div className="account-profile-details">
+
+                <div className="account-detail">
+
+                  <div className="account-detail-icon">
+                    <Mail size={17} />
+                  </div>
+
+                  <div>
+
+                    <span>
+                      Email
+                    </span>
+
+                    <strong>
+                      {user.email}
+                    </strong>
+
+                  </div>
+
                 </div>
 
-                <div>
-                  <span>
-                    Phone
-                  </span>
 
-                  <strong>
-                    {user.phone}
-                  </strong>
+                <div className="account-detail">
+
+                  <div className="account-detail-icon">
+                    <Phone size={17} />
+                  </div>
+
+                  <div>
+
+                    <span>
+                      Phone
+                    </span>
+
+                    <strong>
+                      {user.phone}
+                    </strong>
+
+                  </div>
+
                 </div>
 
               </div>
 
-            </div>
+            )}
 
           </section>
 
@@ -232,7 +415,7 @@ function Account() {
             {/* FAVOURITES */}
 
             <Link
-              to="/favourites"
+              to="/favorites"
               className="account-menu-item"
             >
 

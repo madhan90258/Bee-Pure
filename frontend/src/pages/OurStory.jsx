@@ -338,6 +338,7 @@ function OurStory() {
             <Link
               to="/shop"
               className="story-secondary-button"
+              
             >
               Discover Bee Pure
               <ArrowRight size={17} />

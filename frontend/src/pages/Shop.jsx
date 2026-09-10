@@ -22,6 +22,13 @@ function Shop() {
   const [addedProduct, setAddedProduct] = useState(null);
 
   // =========================================
+  // CATEGORY FILTER
+  // =========================================
+
+  const [selectedCategory, setSelectedCategory] =
+    useState("All Products");
+
+  // =========================================
   // SEARCH PARAMETER
   // =========================================
 
@@ -45,6 +52,7 @@ function Shop() {
       description:
         "Pure forest honey collected naturally from trusted local beekeepers. Rich in natural goodness, flavour and nutrients.",
     },
+
     {
       id: 2,
       name: "Raw Organic Honey",
@@ -56,6 +64,7 @@ function Shop() {
       description:
         "Naturally raw and minimally processed honey sourced directly from trusted farmers.",
     },
+
     {
       id: 3,
       name: "Natural Jaggery",
@@ -67,6 +76,7 @@ function Shop() {
       description:
         "Traditional natural jaggery made with care and sourced directly from local producers.",
     },
+
     {
       id: 4,
       name: "Organic Turmeric",
@@ -78,6 +88,7 @@ function Shop() {
       description:
         "Naturally grown turmeric with rich colour, flavour and everyday wellness benefits.",
     },
+
     {
       id: 5,
       name: "Organic A2 Ghee",
@@ -89,6 +100,7 @@ function Shop() {
       description:
         "Traditional A2 ghee made from quality milk and prepared with care.",
     },
+
     {
       id: 6,
       name: "Forest Bee Honey",
@@ -103,29 +115,35 @@ function Shop() {
   ];
 
   // =========================================
-  // SEARCH FILTER
+  // SEARCH + CATEGORY FILTER
   // =========================================
 
   const filteredProducts = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
-    // No search = show all products
-    if (!query) {
-      return products;
-    }
-
     return products.filter((product) => {
-      const name = product.name.toLowerCase();
-      const category = product.category.toLowerCase();
-      const description = product.description.toLowerCase();
+      // -----------------------------------------
+      // CATEGORY FILTER
+      // -----------------------------------------
 
-      return (
-        name.includes(query) ||
-        category.includes(query) ||
-        description.includes(query)
-      );
+      const matchesCategory =
+        selectedCategory === "All Products" ||
+        product.category.toLowerCase() ===
+          selectedCategory.toLowerCase();
+
+      // -----------------------------------------
+      // SEARCH FILTER
+      // -----------------------------------------
+
+      const matchesSearch =
+        !query ||
+        product.name.toLowerCase().includes(query) ||
+        product.category.toLowerCase().includes(query) ||
+        product.description.toLowerCase().includes(query);
+
+      return matchesCategory && matchesSearch;
     });
-  }, [searchQuery]);
+  }, [searchQuery, selectedCategory]);
 
   // =========================================
   // LOAD CART
@@ -178,7 +196,8 @@ function Shop() {
   // =========================================
 
   const handleIncrease = (product) => {
-    const currentQuantity = getProductQuantity(product.id);
+    const currentQuantity =
+      getProductQuantity(product.id);
 
     const updatedCart = updateCartQuantity(
       product.id,
@@ -193,7 +212,8 @@ function Shop() {
   // =========================================
 
   const handleDecrease = (product) => {
-    const currentQuantity = getProductQuantity(product.id);
+    const currentQuantity =
+      getProductQuantity(product.id);
 
     if (currentQuantity <= 1) {
       const updatedCart = removeFromCart(product.id);
@@ -209,6 +229,32 @@ function Shop() {
     );
 
     setCart(updatedCart);
+  };
+
+  // =========================================
+  // CATEGORY CHANGE
+  // =========================================
+
+  const handleCategoryChange = (category) => {
+    setSelectedCategory(category);
+
+    // Always start at the product section
+    // when changing category.
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
+
+  // =========================================
+  // BACK TO HOME
+  // =========================================
+
+  const handleBackToHome = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: "auto",
+    });
   };
 
   return (
@@ -254,54 +300,117 @@ function Shop() {
 
         <div className="shop-container">
 
-          {/* CATEGORY FILTER */}
+          {/* =========================================
+              CATEGORY FILTER
+          ========================================= */}
 
           <div className="shop-toolbar">
 
             <div className="shop-categories">
 
+              {/* ALL PRODUCTS */}
+
               <button
                 type="button"
-                className="shop-category active"
+                className={`shop-category ${
+                  selectedCategory === "All Products"
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() =>
+                  handleCategoryChange("All Products")
+                }
               >
                 All Products
               </button>
 
+
+              {/* HONEY */}
+
               <button
                 type="button"
-                className="shop-category"
+                className={`shop-category ${
+                  selectedCategory === "Honey"
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() =>
+                  handleCategoryChange("Honey")
+                }
               >
                 Honey
               </button>
 
+
+              {/* NATURAL SWEETENERS */}
+
               <button
                 type="button"
-                className="shop-category"
+                className={`shop-category ${
+                  selectedCategory ===
+                  "Natural Sweeteners"
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() =>
+                  handleCategoryChange(
+                    "Natural Sweeteners"
+                  )
+                }
               >
                 Natural Sweeteners
               </button>
 
+
+              {/* HEALTHY FOODS */}
+
               <button
                 type="button"
-                className="shop-category"
+                className={`shop-category ${
+                  selectedCategory ===
+                  "Healthy Foods"
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() =>
+                  handleCategoryChange(
+                    "Healthy Foods"
+                  )
+                }
               >
                 Healthy Foods
               </button>
 
+
+              {/* WELLNESS */}
+
               <button
                 type="button"
-                className="shop-category"
+                className={`shop-category ${
+                  selectedCategory === "Wellness"
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() =>
+                  handleCategoryChange("Wellness")
+                }
               >
                 Wellness
               </button>
 
             </div>
 
+
+            {/* PRODUCT COUNT */}
+
             <p className="shop-product-count">
+
               {filteredProducts.length}{" "}
+
               {filteredProducts.length === 1
                 ? "product"
                 : "products"}
+
             </p>
 
           </div>
@@ -312,12 +421,34 @@ function Shop() {
           ========================================= */}
 
           {searchQuery.trim() && (
+
             <div className="shop-search-result">
 
               <p>
                 Search results for{" "}
+
                 <strong>
                   "{searchQuery}"
+                </strong>
+              </p>
+
+            </div>
+
+          )}
+
+
+          {/* =========================================
+              SELECTED CATEGORY MESSAGE
+          ========================================= */}
+
+          {selectedCategory !== "All Products" && (
+            <div className="shop-search-result">
+
+              <p>
+                Showing products in{" "}
+
+                <strong>
+                  {selectedCategory}
                 </strong>
               </p>
 
@@ -342,12 +473,15 @@ function Shop() {
                   addedProduct === product.id;
 
                 return (
+
                   <article
                     className="shop-product-card"
                     key={product.id}
                   >
 
-                    {/* PRODUCT IMAGE */}
+                    {/* =================================
+                        PRODUCT IMAGE
+                    ================================= */}
 
                     <Link
                       to={`/product/${product.id}`}
@@ -361,21 +495,26 @@ function Shop() {
                       />
 
                       {product.oldPrice && (
+
                         <span className="shop-sale-badge">
                           SALE
                         </span>
+
                       )}
 
                     </Link>
 
 
-                    {/* PRODUCT CONTENT */}
+                    {/* =================================
+                        PRODUCT CONTENT
+                    ================================= */}
 
                     <div className="shop-product-content">
 
                       <p className="shop-product-category">
                         {product.category}
                       </p>
+
 
                       <Link
                         to={`/product/${product.id}`}
@@ -385,7 +524,9 @@ function Shop() {
                       </Link>
 
 
-                      {/* RATING */}
+                      {/* =================================
+                          RATING
+                      ================================= */}
 
                       <div className="shop-product-rating">
 
@@ -400,7 +541,9 @@ function Shop() {
                       </div>
 
 
-                      {/* PRICE + CART */}
+                      {/* =================================
+                          PRICE + CART
+                      ================================= */}
 
                       <div className="shop-product-bottom">
 
@@ -411,15 +554,19 @@ function Shop() {
                           </strong>
 
                           {product.oldPrice && (
+
                             <del>
                               ₹{product.oldPrice}
                             </del>
+
                           )}
 
                         </div>
 
 
-                        {/* CART BUTTON */}
+                        {/* =================================
+                            CART BUTTON
+                        ================================= */}
 
                         {quantity === 0 ? (
 
@@ -435,17 +582,25 @@ function Shop() {
                           >
 
                             {isAdded ? (
+
                               <>
                                 <Check size={17} />
-                                <span>Added</span>
+
+                                <span>
+                                  Added
+                                </span>
                               </>
+
                             ) : (
+
                               <>
                                 <ShoppingCart size={17} />
+
                                 <span>
                                   Add to Cart
                                 </span>
                               </>
+
                             )}
 
                           </button>
@@ -456,6 +611,8 @@ function Shop() {
                             className="shop-quantity-control"
                             aria-label={`Quantity of ${product.name}`}
                           >
+
+                            {/* DECREASE */}
 
                             <button
                               type="button"
@@ -468,9 +625,15 @@ function Shop() {
                               <Minus size={15} />
                             </button>
 
+
+                            {/* QUANTITY */}
+
                             <span className="shop-quantity">
                               {quantity}
                             </span>
+
+
+                            {/* INCREASE */}
 
                             <button
                               type="button"
@@ -492,7 +655,9 @@ function Shop() {
                     </div>
 
                   </article>
+
                 );
+
               })}
 
             </div>
@@ -500,7 +665,7 @@ function Shop() {
           ) : (
 
             /* =========================================
-               NO SEARCH RESULTS
+               NO RESULTS
             ========================================= */
 
             <div className="shop-no-results">
@@ -510,18 +675,30 @@ function Shop() {
               </h2>
 
               <p>
+
                 We couldn't find any products matching{" "}
+
                 <strong>
-                  "{searchQuery}"
+                  "{searchQuery || selectedCategory}"
                 </strong>.
+
               </p>
 
-              <Link
-                to="/shop"
+
+              <button
+                type="button"
                 className="shop-no-results-button"
+                onClick={() => {
+                  setSelectedCategory("All Products");
+
+                  window.scrollTo({
+                    top: 0,
+                    behavior: "smooth",
+                  });
+                }}
               >
                 View All Products
-              </Link>
+              </button>
 
             </div>
 
@@ -538,9 +715,15 @@ function Shop() {
               More naturally good products are coming soon.
             </p>
 
-            <Link to="/">
+
+            <Link
+              to="/"
+              onClick={handleBackToHome}
+            >
               Back to Home
+
               <ArrowRight size={16} />
+
             </Link>
 
           </div>

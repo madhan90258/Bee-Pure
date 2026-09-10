@@ -7,7 +7,7 @@ import {
   Heart,
 } from "lucide-react";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 function Navbar() {
@@ -15,7 +15,80 @@ function Navbar() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Cart count
+  const [cartCount, setCartCount] = useState(0);
+
   const navigate = useNavigate();
+
+  // =========================================
+  // GET CART COUNT
+  // =========================================
+
+  const updateCartCount = () => {
+    try {
+      const savedCart = localStorage.getItem("beePureCart");
+
+      if (!savedCart) {
+        setCartCount(0);
+        return;
+      }
+
+      const cart = JSON.parse(savedCart);
+
+      if (!Array.isArray(cart)) {
+        setCartCount(0);
+        return;
+      }
+
+      const totalItems = cart.reduce(
+        (total, item) =>
+          total + (Number(item.quantity) || 1),
+        0
+      );
+
+      setCartCount(totalItems);
+    } catch (error) {
+      console.error("Unable to read cart:", error);
+      setCartCount(0);
+    }
+  };
+
+  // =========================================
+  // CART COUNT LISTENER
+  // =========================================
+
+  useEffect(() => {
+    // Get initial cart count
+    updateCartCount();
+
+    // Same-tab cart updates
+    const handleCartUpdate = () => {
+      updateCartCount();
+    };
+
+    window.addEventListener(
+      "beePureCartUpdated",
+      handleCartUpdate
+    );
+
+    // Cross-tab cart updates
+    window.addEventListener(
+      "storage",
+      handleCartUpdate
+    );
+
+    return () => {
+      window.removeEventListener(
+        "beePureCartUpdated",
+        handleCartUpdate
+      );
+
+      window.removeEventListener(
+        "storage",
+        handleCartUpdate
+      );
+    };
+  }, []);
 
   // =========================================
   // MOBILE MENU
@@ -31,8 +104,6 @@ function Navbar() {
 
   // =========================================
   // PRODUCTS
-  //
-  // Keep this synchronized with Shop.jsx
   // =========================================
 
   const products = [
@@ -118,22 +189,11 @@ function Navbar() {
 
     const query = searchQuery.trim();
 
-    // Do nothing if search box is empty
     if (!query) {
       return;
     }
 
     const normalizedQuery = query.toLowerCase();
-
-    // =========================================
-    // EXACT PRODUCT NAME
-    //
-    // Example:
-    // "Pure Forest Honey"
-    //
-    // Goes directly to:
-    // /product/1
-    // =========================================
 
     const exactProduct = products.find(
       (product) =>
@@ -150,16 +210,6 @@ function Navbar() {
       return;
     }
 
-    // =========================================
-    // SEARCH BY:
-    //
-    // - Name
-    // - Description
-    // - Category
-    //
-    // The Shop page will handle the filtering.
-    // =========================================
-
     navigate(
       `/shop?search=${encodeURIComponent(query)}`
     );
@@ -175,8 +225,6 @@ function Navbar() {
 
   const handleSearchToggle = () => {
     setIsSearchOpen((current) => !current);
-
-    // Close mobile menu when opening search
     setIsMenuOpen(false);
   };
 
@@ -197,9 +245,7 @@ function Navbar() {
     <header className="navbar">
       <div className="container navbar-container">
 
-        {/* =====================================
-            MOBILE MENU BUTTON
-        ===================================== */}
+        {/* MOBILE MENU BUTTON */}
 
         <button
           type="button"
@@ -220,9 +266,7 @@ function Navbar() {
         </button>
 
 
-        {/* =====================================
-            LOGO
-        ===================================== */}
+        {/* LOGO */}
 
         <Link
           to="/"
@@ -243,9 +287,7 @@ function Navbar() {
         </Link>
 
 
-        {/* =====================================
-            DESKTOP NAVIGATION
-        ===================================== */}
+        {/* DESKTOP NAVIGATION */}
 
         <nav
           className="navbar-nav"
@@ -290,9 +332,7 @@ function Navbar() {
         </nav>
 
 
-        {/* =====================================
-            RIGHT ACTIONS
-        ===================================== */}
+        {/* RIGHT ACTIONS */}
 
         <div className="navbar-actions">
 
@@ -320,12 +360,12 @@ function Navbar() {
           {/* WISHLIST */}
 
           <Link
-  to="/favorites"
-  className="icon-btn navbar-action navbar-heart"
-  aria-label="Favorites"
->
-  <Heart size={20} />
-</Link>
+            to="/favorites"
+            className="icon-btn navbar-action navbar-heart"
+            aria-label="Favorites"
+          >
+            <Heart size={20} />
+          </Link>
 
 
           {/* CART */}
@@ -338,16 +378,18 @@ function Navbar() {
           >
             <ShoppingCart size={21} />
 
-            <span className="navbar-cart-count">
-              0
-            </span>
+            {cartCount > 0 && (
+              <span className="navbar-cart-count">
+                {cartCount > 99 ? "99+" : cartCount}
+              </span>
+            )}
           </Link>
 
 
           {/* ACCOUNT */}
 
           <Link
-            to="/Account"
+            to="/login"
             className="icon-btn navbar-action"
             aria-label="Account"
             onClick={closeMenu}
@@ -358,9 +400,7 @@ function Navbar() {
         </div>
 
 
-        {/* =====================================
-            SEARCH FORM
-        ===================================== */}
+        {/* SEARCH FORM */}
 
         {isSearchOpen && (
           <form
@@ -397,9 +437,7 @@ function Navbar() {
         )}
 
 
-        {/* =====================================
-            MOBILE NAVIGATION
-        ===================================== */}
+        {/* MOBILE NAVIGATION */}
 
         <nav
           className={`navbar-mobile-nav ${
@@ -449,7 +487,7 @@ function Navbar() {
           </Link>
 
           <Link
-            to="/Account"
+            to="/login"
             className="navbar-mobile-link"
             onClick={closeMenu}
           >

@@ -5,6 +5,7 @@ import {
   Minus,
   Plus,
   ArrowLeft,
+  ArrowRight,
   ShieldCheck,
   Leaf,
   Truck,
@@ -22,6 +23,13 @@ function ProductDetails() {
   const [shareMessage, setShareMessage] = useState("");
 
   // =========================================
+  // GALLERY
+  // =========================================
+
+  const [activeMediaIndex, setActiveMediaIndex] =
+    useState(0);
+
+  // =========================================
   // PRODUCTS
   // =========================================
 
@@ -32,62 +40,129 @@ function ProductDetails() {
       category: "Honey",
       price: 499,
       oldPrice: 599,
+
       image: "/products/forest-honey.jpg",
+
+      // Multiple images
+      images: [
+        "/products/forest-honey.jpg",
+        "/products/forest-honey-2.jpg",
+        "/products/forest-honey-3.jpg",
+      ],
+
+      // Videos
+      videos: [
+        // Add video path here when available
+        // "/products/forest-honey-video.mp4",
+      ],
+
       rating: 5,
       description:
         "Pure forest honey collected naturally from trusted local beekeepers. Rich in natural goodness, flavour and nutrients.",
     },
+
     {
       id: 2,
       name: "Raw Organic Honey",
       category: "Honey",
       price: 399,
       oldPrice: null,
+
       image: "/products/raw-honey.jpg",
+
+      images: [
+        "/products/raw-honey.jpg",
+        "/products/raw-honey-2.jpg",
+        "/products/raw-honey-3.jpg",
+      ],
+
+      videos: [],
+
       rating: 5,
       description:
         "Naturally raw and minimally processed honey sourced directly from trusted farmers.",
     },
+
     {
       id: 3,
       name: "Natural Jaggery",
       category: "Natural Sweeteners",
       price: 249,
       oldPrice: 299,
+
       image: "/products/jaggery.jpg",
+
+      images: [
+        "/products/jaggery.jpg",
+        "/products/jaggery-2.jpg",
+      ],
+
+      videos: [],
+
       rating: 4,
       description:
         "Traditional natural jaggery made with care and sourced directly from local producers.",
     },
+
     {
       id: 4,
       name: "Organic Turmeric",
       category: "Healthy Foods",
       price: 199,
       oldPrice: null,
+
       image: "/products/turmeric.jpg",
+
+      images: [
+        "/products/turmeric.jpg",
+        "/products/turmeric-2.jpg",
+      ],
+
+      videos: [],
+
       rating: 5,
       description:
         "Naturally grown turmeric with rich colour, flavour and everyday wellness benefits.",
     },
+
     {
       id: 5,
       name: "Organic A2 Ghee",
       category: "Healthy Foods",
       price: 699,
       oldPrice: 799,
+
       image: "/products/ghee.jpg",
+
+      images: [
+        "/products/ghee.jpg",
+        "/products/ghee-2.jpg",
+        "/products/ghee-3.jpg",
+      ],
+
+      videos: [],
+
       rating: 5,
       description:
         "Traditional A2 ghee made from quality milk and prepared with care.",
     },
+
     {
       id: 6,
       name: "Forest Bee Honey",
       category: "Honey",
       price: 549,
       oldPrice: null,
+
       image: "/products/forest-bee-honey.jpg",
+
+      images: [
+        "/products/forest-bee-honey.jpg",
+        "/products/forest-bee-honey-2.jpg",
+      ],
+
+      videos: [],
+
       rating: 5,
       description:
         "Authentic forest honey with a naturally rich taste, sourced from local beekeepers.",
@@ -101,6 +176,41 @@ function ProductDetails() {
   const product = products.find(
     (item) => item.id === Number(id)
   );
+
+  // =========================================
+  // BUILD PRODUCT MEDIA
+  // =========================================
+
+  const productMedia = product
+    ? [
+        ...(product.images?.length
+          ? product.images.map((url) => ({
+              type: "image",
+              url,
+            }))
+          : [
+              {
+                type: "image",
+                url: product.image,
+              },
+            ]),
+
+        ...(product.videos?.length
+          ? product.videos.map((url) => ({
+              type: "video",
+              url,
+            }))
+          : []),
+      ]
+    : [];
+
+  // =========================================
+  // RESET GALLERY WHEN PRODUCT CHANGES
+  // =========================================
+
+  useEffect(() => {
+    setActiveMediaIndex(0);
+  }, [id]);
 
   // =========================================
   // LOAD FAVORITE STATUS
@@ -166,7 +276,6 @@ function ProductDetails() {
       JSON.stringify(updatedFavorites)
     );
 
-    // Tell navbar / other components that favorites changed
     window.dispatchEvent(
       new Event("favoritesUpdated")
     );
@@ -197,13 +306,14 @@ function ProductDetails() {
 
       await navigator.clipboard.writeText(productUrl);
 
-      setShareMessage("Product link copied!");
+      setShareMessage(
+        "Product link copied!"
+      );
 
       setTimeout(() => {
         setShareMessage("");
       }, 2500);
     } catch (error) {
-      // User cancelled sharing
       console.log("Share cancelled.");
     }
   };
@@ -271,6 +381,68 @@ function ProductDetails() {
   };
 
   // =========================================
+  // NEXT MEDIA
+  // =========================================
+
+  const handleNextMedia = () => {
+    if (productMedia.length <= 1) {
+      return;
+    }
+
+    setActiveMediaIndex(
+      (currentIndex) =>
+        (currentIndex + 1) %
+        productMedia.length
+    );
+  };
+
+  // =========================================
+  // PREVIOUS MEDIA
+  // =========================================
+
+  const handlePreviousMedia = () => {
+    if (productMedia.length <= 1) {
+      return;
+    }
+
+    setActiveMediaIndex(
+      (currentIndex) =>
+        (currentIndex - 1 + productMedia.length) %
+        productMedia.length
+    );
+  };
+
+  // =========================================
+  // SWIPE SUPPORT
+  // =========================================
+
+  const handleTouchStart = (event) => {
+    event.currentTarget.dataset.touchStartX =
+      event.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (event) => {
+    const startX = Number(
+      event.currentTarget.dataset.touchStartX
+    );
+
+    const endX = event.changedTouches[0].clientX;
+
+    const difference = startX - endX;
+
+    // Minimum swipe distance
+    if (Math.abs(difference) < 50) {
+      return;
+    }
+
+    if (difference > 0) {
+      handleNextMedia();
+    } else {
+      handlePreviousMedia();
+    }
+  };
+
+  // =========================================
   // PRODUCT NOT FOUND
   // =========================================
 
@@ -295,6 +467,9 @@ function ProductDetails() {
       </main>
     );
   }
+
+  const activeMedia =
+    productMedia[activeMediaIndex];
 
   return (
     <main className="product-details-page">
@@ -321,61 +496,195 @@ function ProductDetails() {
         <section className="product-details">
 
           {/* ===================================
-              PRODUCT IMAGE
+              PRODUCT MEDIA GALLERY
           ==================================== */}
 
-          <div className="product-details-image">
+          <div className="product-gallery">
 
-            <img
-              src={product.image}
-              alt={product.name}
-            />
+            {/* MAIN MEDIA */}
 
-            {product.oldPrice && (
-              <span className="product-sale-badge">
-                SALE
-              </span>
-            )}
+            <div
+              className="product-details-image"
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+            >
 
-            {/* IMAGE ACTIONS */}
+              {activeMedia?.type === "video" ? (
 
-            <div className="product-image-actions">
-
-              <button
-                type="button"
-                className={`product-icon-button ${
-                  isFavorite
-                    ? "favorite-active"
-                    : ""
-                }`}
-                onClick={handleFavorite}
-                aria-label={
-                  isFavorite
-                    ? "Remove from favorites"
-                    : "Add to favorites"
-                }
-              >
-                <Heart
-                  size={20}
-                  fill={
-                    isFavorite
-                      ? "currentColor"
-                      : "none"
-                  }
+                <video
+                  className="product-main-video"
+                  src={activeMedia.url}
+                  controls
+                  playsInline
+                  preload="metadata"
                 />
-              </button>
+
+              ) : (
+
+                <img
+                  src={activeMedia?.url || product.image}
+                  alt={product.name}
+                />
+
+              )}
 
 
-              <button
-                type="button"
-                className="product-icon-button"
-                onClick={handleShare}
-                aria-label="Share product"
-              >
-                <Share2 size={20} />
-              </button>
+              {/* SALE BADGE */}
+
+              {product.oldPrice && (
+                <span className="product-sale-badge">
+                  SALE
+                </span>
+              )}
+
+
+              {/* =================================
+                  PREVIOUS BUTTON
+              ================================== */}
+
+              {productMedia.length > 1 && (
+
+                <button
+                  type="button"
+                  className="product-gallery-arrow product-gallery-prev"
+                  onClick={handlePreviousMedia}
+                  aria-label="Previous product media"
+                >
+                  <ArrowLeft size={20} />
+                </button>
+
+              )}
+
+
+              {/* =================================
+                  NEXT BUTTON
+              ================================== */}
+
+              {productMedia.length > 1 && (
+
+                <button
+                  type="button"
+                  className="product-gallery-arrow product-gallery-next"
+                  onClick={handleNextMedia}
+                  aria-label="Next product media"
+                >
+                  <ArrowRight size={20} />
+                </button>
+
+              )}
+
+
+              {/* =================================
+                  IMAGE ACTIONS
+              ================================== */}
+
+              <div className="product-image-actions">
+
+                <button
+                  type="button"
+                  className={`product-icon-button ${
+                    isFavorite
+                      ? "favorite-active"
+                      : ""
+                  }`}
+                  onClick={handleFavorite}
+                  aria-label={
+                    isFavorite
+                      ? "Remove from favorites"
+                      : "Add to favorites"
+                  }
+                >
+                  <Heart
+                    size={20}
+                    fill={
+                      isFavorite
+                        ? "currentColor"
+                        : "none"
+                    }
+                  />
+                </button>
+
+
+                <button
+                  type="button"
+                  className="product-icon-button"
+                  onClick={handleShare}
+                  aria-label="Share product"
+                >
+                  <Share2 size={20} />
+                </button>
+
+              </div>
 
             </div>
+
+
+            {/* =================================
+                THUMBNAILS
+            ================================== */}
+
+            {productMedia.length > 1 && (
+
+              <div
+                className="product-media-thumbnails"
+                aria-label="Product media thumbnails"
+              >
+
+                {productMedia.map(
+                  (media, index) => (
+
+                    <button
+                      key={`${media.url}-${index}`}
+                      type="button"
+                      className={`product-media-thumbnail ${
+                        index ===
+                        activeMediaIndex
+                          ? "active"
+                          : ""
+                      }`}
+                      onClick={() =>
+                        setActiveMediaIndex(index)
+                      }
+                      aria-label={`View ${
+                        media.type
+                      } ${index + 1}`}
+                    >
+
+                      {media.type === "video" ? (
+
+                        <div className="product-video-thumbnail">
+
+                          <video
+                            src={media.url}
+                            muted
+                            preload="metadata"
+                          />
+
+                          <span className="product-video-label">
+                            ▶
+                          </span>
+
+                        </div>
+
+                      ) : (
+
+                        <img
+                          src={media.url}
+                          alt={`${product.name} ${
+                            index + 1
+                          }`}
+                        />
+
+                      )}
+
+                    </button>
+
+                  )
+                )}
+
+              </div>
+
+            )}
 
           </div>
 
@@ -389,6 +698,7 @@ function ProductDetails() {
             <p className="product-details-category">
               {product.category}
             </p>
+
 
             <h1>
               {product.name}
@@ -425,15 +735,21 @@ function ProductDetails() {
               )}
 
               {product.oldPrice && (
+
                 <span className="product-discount">
+
                   {Math.round(
-                    ((product.oldPrice -
-                      product.price) /
-                      product.oldPrice) *
-                      100
+                    (
+                      (product.oldPrice -
+                        product.price) /
+                      product.oldPrice
+                    ) * 100
                   )}
+
                   % OFF
+
                 </span>
+
               )}
 
             </div>
@@ -525,9 +841,11 @@ function ProductDetails() {
             {/* SHARE MESSAGE */}
 
             {shareMessage && (
+
               <p className="product-share-message">
                 {shareMessage}
               </p>
+
             )}
 
 
@@ -542,6 +860,7 @@ function ProductDetails() {
                 <Leaf size={21} />
 
                 <div>
+
                   <strong>
                     100% Natural
                   </strong>
@@ -549,6 +868,7 @@ function ProductDetails() {
                   <span>
                     Pure & unprocessed
                   </span>
+
                 </div>
 
               </div>
@@ -559,6 +879,7 @@ function ProductDetails() {
                 <ShieldCheck size={21} />
 
                 <div>
+
                   <strong>
                     Quality Assured
                   </strong>
@@ -566,6 +887,7 @@ function ProductDetails() {
                   <span>
                     Carefully sourced
                   </span>
+
                 </div>
 
               </div>
@@ -576,6 +898,7 @@ function ProductDetails() {
                 <Truck size={21} />
 
                 <div>
+
                   <strong>
                     Safe Delivery
                   </strong>
@@ -583,6 +906,7 @@ function ProductDetails() {
                   <span>
                     Securely packed
                   </span>
+
                 </div>
 
               </div>

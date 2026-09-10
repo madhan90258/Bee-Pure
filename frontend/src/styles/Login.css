@@ -828,3 +828,37 @@
   }
 
 }
+/* =========================================
+   FIT LOGIN PAGE TO SINGLE SCREEN
+   Keeps existing UI/design unchanged
+========================================= */
+
+@media (min-width: 851px) and (max-height: 850px) {
+
+  .login-page {
+    min-height: calc(100vh - var(--header-height));
+    height: calc(100vh - var(--header-height));
+
+    box-sizing: border-box;
+
+    padding: 20px;
+  }
+
+  .login-container {
+    max-height: 100%;
+  }
+
+  .login-brand,
+  .login-card {
+    min-height: 0;
+  }
+
+  .login-brand {
+    padding: 35px 45px;
+  }
+
+  .login-card {
+    padding: 35px 45px;
+  }
+
+}
