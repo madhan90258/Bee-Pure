@@ -1,4 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
 import {
   Plus,
   Search,
@@ -11,178 +16,25 @@ import {
   Package,
   CheckCircle,
   AlertCircle,
+  ArrowLeft,
 } from "lucide-react";
+
+import {
+  getProducts,
+  saveProducts,
+  removeProductFromCustomerData,
+} from "../utils/products";
+
+import {
+  Link,
+} from "react-router-dom";
 
 import "../styles/SellerProducts.css";
 
 
-// ======================================================
-// STORAGE KEY
-// ======================================================
-
-const PRODUCTS_STORAGE_KEY = "beePureSellerProducts";
-
-
-// ======================================================
-// DEFAULT PRODUCTS
-// ======================================================
-
-const defaultProducts = [
-  {
-    id: 1,
-
-    name: "Pure Forest Honey",
-
-    description:
-      "Pure forest honey collected naturally from trusted local beekeepers. Rich in natural goodness, flavour and nutrients.",
-
-    category: "Honey",
-
-    price: 499,
-
-    oldPrice: 599,
-
-    images: [
-      "/products/forest-honey.jpg",
-    ],
-
-    videos: [],
-
-    stockStatus: "in-stock",
-
-    stockCount: 25,
-  },
-
-  {
-    id: 2,
-
-    name: "Raw Organic Honey",
-
-    description:
-      "Naturally raw and minimally processed honey sourced directly from trusted farmers.",
-
-    category: "Honey",
-
-    price: 399,
-
-    oldPrice: null,
-
-    images: [
-      "/products/raw-honey.jpg",
-    ],
-
-    videos: [],
-
-    stockStatus: "in-stock",
-
-    stockCount: 18,
-  },
-
-  {
-    id: 3,
-
-    name: "Natural Jaggery",
-
-    description:
-      "Traditional natural jaggery made with care and sourced directly from local producers.",
-
-    category: "Natural Sweeteners",
-
-    price: 249,
-
-    oldPrice: 299,
-
-    images: [
-      "/products/jaggery.jpg",
-    ],
-
-    videos: [],
-
-    stockStatus: "in-stock",
-
-    stockCount: 30,
-  },
-
-  {
-    id: 4,
-
-    name: "Organic Turmeric",
-
-    description:
-      "Naturally grown turmeric with rich colour, flavour and everyday wellness benefits.",
-
-    category: "Healthy Foods",
-
-    price: 199,
-
-    oldPrice: null,
-
-    images: [
-      "/products/turmeric.jpg",
-    ],
-
-    videos: [],
-
-    stockStatus: "in-stock",
-
-    stockCount: 40,
-  },
-
-  {
-    id: 5,
-
-    name: "Organic A2 Ghee",
-
-    description:
-      "Traditional A2 ghee made from quality milk and prepared with care.",
-
-    category: "Healthy Foods",
-
-    price: 699,
-
-    oldPrice: 799,
-
-    images: [
-      "/products/ghee.jpg",
-    ],
-
-    videos: [],
-
-    stockStatus: "in-stock",
-
-    stockCount: 12,
-  },
-
-  {
-    id: 6,
-
-    name: "Forest Bee Honey",
-
-    description:
-      "Authentic forest honey with a naturally rich taste, sourced from local beekeepers.",
-
-    category: "Honey",
-
-    price: 549,
-
-    oldPrice: null,
-
-    images: [
-      "/products/forest-bee-honey.jpg",
-    ],
-
-    videos: [],
-
-    stockStatus: "in-stock",
-
-    stockCount: 20,
-  },
-];
-
-
-// ======================================================
+// =====================================================
 // EMPTY FORM
-// ======================================================
+// =====================================================
 
 const emptyForm = {
   name: "",
@@ -195,110 +47,145 @@ const emptyForm = {
 };
 
 
-// ======================================================
+// =====================================================
 // COMPONENT
-// ======================================================
+// =====================================================
 
 function SellerProducts() {
 
-  // ====================================================
+  // ===================================================
   // STATE
-  // ====================================================
+  // ===================================================
 
-  const [products, setProducts] = useState([]);
+  const [
+    products,
+    setProducts,
+  ] = useState([]);
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [
+    searchQuery,
+    setSearchQuery,
+  ] = useState("");
 
-  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [
+    categoryFilter,
+    setCategoryFilter,
+  ] = useState("All");
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [
+    isModalOpen,
+    setIsModalOpen,
+  ] = useState(false);
 
-  const [editingProductId, setEditingProductId] = useState(null);
+  const [
+    editingProductId,
+    setEditingProductId,
+  ] = useState(null);
 
-  const [form, setForm] = useState(emptyForm);
+  const [
+    form,
+    setForm,
+  ] = useState(emptyForm);
 
-  const [imageFiles, setImageFiles] = useState([]);
+  const [
+    imageFiles,
+    setImageFiles,
+  ] = useState([]);
 
-  const [imagePreviews, setImagePreviews] = useState([]);
+  const [
+    imagePreviews,
+    setImagePreviews,
+  ] = useState([]);
 
-  const [videoFiles, setVideoFiles] = useState([]);
+  const [
+    videoFiles,
+    setVideoFiles,
+  ] = useState([]);
 
-  const [videoPreviews, setVideoPreviews] = useState([]);
+  const [
+    videoPreviews,
+    setVideoPreviews,
+  ] = useState([]);
 
-  const [formError, setFormError] = useState("");
+  const [
+    formError,
+    setFormError,
+  ] = useState("");
 
-  const [successMessage, setSuccessMessage] = useState("");
+  const [
+    successMessage,
+    setSuccessMessage,
+  ] = useState("");
 
-  const [deleteProductId, setDeleteProductId] = useState(null);
+  const [
+    deleteProductId,
+    setDeleteProductId,
+  ] = useState(null);
 
-  const imageInputRef = useRef(null);
 
-  const videoInputRef = useRef(null);
+  const imageInputRef =
+    useRef(null);
+
+  const videoInputRef =
+    useRef(null);
 
 
-  // ====================================================
-  // LOAD PRODUCTS
-  // ====================================================
+  // ===================================================
+  // LOAD + LISTEN FOR PRODUCT CHANGES
+  // ===================================================
 
   useEffect(() => {
 
-    const savedProducts =
-      localStorage.getItem(
-        PRODUCTS_STORAGE_KEY
+    const loadProducts = () => {
+
+      setProducts(
+        getProducts()
       );
 
-    if (savedProducts) {
+    };
 
-      try {
 
-        const parsedProducts =
-          JSON.parse(savedProducts);
+    // Initial load
 
-        setProducts(parsedProducts);
+    loadProducts();
 
-      } catch {
 
-        setProducts(defaultProducts);
+    // Same browser/tab updates
 
-        localStorage.setItem(
-          PRODUCTS_STORAGE_KEY,
-          JSON.stringify(defaultProducts)
-        );
-      }
+    window.addEventListener(
+      "beePureProductsUpdated",
+      loadProducts
+    );
 
-    } else {
 
-      setProducts(defaultProducts);
+    // Other browser tabs
 
-      localStorage.setItem(
-        PRODUCTS_STORAGE_KEY,
-        JSON.stringify(defaultProducts)
+    window.addEventListener(
+      "storage",
+      loadProducts
+    );
+
+
+    return () => {
+
+      window.removeEventListener(
+        "beePureProductsUpdated",
+        loadProducts
       );
 
-    }
+      window.removeEventListener(
+        "storage",
+        loadProducts
+      );
+
+    };
 
   }, []);
 
 
-  // ====================================================
-  // SAVE PRODUCTS
-  // ====================================================
-
-  const saveProducts = (updatedProducts) => {
-
-    setProducts(updatedProducts);
-
-    localStorage.setItem(
-      PRODUCTS_STORAGE_KEY,
-      JSON.stringify(updatedProducts)
-    );
-
-  };
-
-
-  // ====================================================
+  // ===================================================
   // CATEGORIES
-  // ====================================================
+  // ===================================================
 
   const categories = [
     "Honey",
@@ -309,36 +196,64 @@ function SellerProducts() {
   ];
 
 
-  // ====================================================
-  // HANDLE FORM CHANGE
-  // ====================================================
+  // ===================================================
+  // SAVE PRODUCTS
+  // ===================================================
 
-  const handleChange = (event) => {
+  const handleSaveProducts = (
+    updatedProducts
+  ) => {
+
+    const savedProducts =
+      saveProducts(
+        updatedProducts
+      );
+
+    setProducts(
+      savedProducts
+    );
+
+  };
+
+
+  // ===================================================
+  // FORM CHANGE
+  // ===================================================
+
+  const handleChange = (
+    event
+  ) => {
 
     const {
       name,
       value,
     } = event.target;
 
-    setForm((previous) => ({
-      ...previous,
-      [name]: value,
-    }));
+
+    setForm(
+      (previous) => ({
+        ...previous,
+        [name]: value,
+      })
+    );
+
 
     setFormError("");
 
   };
 
 
-  // ====================================================
+  // ===================================================
   // OPEN ADD MODAL
-  // ====================================================
+  // ===================================================
 
   const openAddModal = () => {
 
     setEditingProductId(null);
 
-    setForm(emptyForm);
+    setForm(
+      emptyForm
+    );
 
     setImageFiles([]);
 
@@ -355,25 +270,46 @@ function SellerProducts() {
   };
 
 
-  // ====================================================
+  // ===================================================
   // OPEN EDIT MODAL
-  // ====================================================
+  // ===================================================
 
-  const openEditModal = (product) => {
+  const openEditModal = (
+    product
+  ) => {
 
-    setEditingProductId(product.id);
+    setEditingProductId(
+      product.id
+    );
+
 
     setForm({
-      name: product.name || "",
-      description: product.description || "",
-      category: product.category || "",
-      price: product.price || "",
-      oldPrice: product.oldPrice || "",
+
+      name:
+        product.name || "",
+
+      description:
+        product.description || "",
+
+      category:
+        product.category || "",
+
+      price:
+        product.price ?? "",
+
+      oldPrice:
+        product.oldPrice ?? "",
+
       stockStatus:
-        product.stockStatus || "in-stock",
+        product.stockStatus ||
+        "in-stock",
+
       stockCount:
-        product.stockCount ?? "",
+        product.stockCount ??
+        "",
+
     });
+
 
     setImageFiles([]);
 
@@ -394,9 +330,9 @@ function SellerProducts() {
   };
 
 
-  // ====================================================
+  // ===================================================
   // CLOSE MODAL
-  // ====================================================
+  // ===================================================
 
   const closeModal = () => {
 
@@ -404,7 +340,9 @@ function SellerProducts() {
 
     setEditingProductId(null);
 
-    setForm(emptyForm);
+    setForm(
+      emptyForm
+    );
 
     setImageFiles([]);
 
@@ -419,23 +357,33 @@ function SellerProducts() {
   };
 
 
-  // ====================================================
+  // ===================================================
   // IMAGE SELECT
-  // ====================================================
+  // ===================================================
 
-  const handleImageChange = (event) => {
+  const handleImageChange = (
+    event
+  ) => {
 
     const files =
-      Array.from(event.target.files || []);
+      Array.from(
+        event.target.files || []
+      );
+
 
     if (!files.length) {
       return;
     }
 
-    const validFiles = files.filter(
-      (file) =>
-        file.type.startsWith("image/")
-    );
+
+    const validFiles =
+      files.filter(
+        (file) =>
+          file.type.startsWith(
+            "image/"
+          )
+      );
+
 
     if (!validFiles.length) {
 
@@ -446,43 +394,64 @@ function SellerProducts() {
       return;
     }
 
+
     const newPreviews =
-      validFiles.map((file) =>
-        URL.createObjectURL(file)
+      validFiles.map(
+        (file) =>
+          URL.createObjectURL(
+            file
+          )
       );
 
-    setImageFiles((previous) => [
-      ...previous,
-      ...validFiles,
-    ]);
 
-    setImagePreviews((previous) => [
-      ...previous,
-      ...newPreviews,
-    ]);
+    setImageFiles(
+      (previous) => [
+        ...previous,
+        ...validFiles,
+      ]
+    );
+
+
+    setImagePreviews(
+      (previous) => [
+        ...previous,
+        ...newPreviews,
+      ]
+    );
+
 
     event.target.value = "";
 
   };
 
 
-  // ====================================================
+  // ===================================================
   // VIDEO SELECT
-  // ====================================================
+  // ===================================================
 
-  const handleVideoChange = (event) => {
+  const handleVideoChange = (
+    event
+  ) => {
 
     const files =
-      Array.from(event.target.files || []);
+      Array.from(
+        event.target.files || []
+      );
+
 
     if (!files.length) {
       return;
     }
 
-    const validFiles = files.filter(
-      (file) =>
-        file.type.startsWith("video/")
-    );
+
+    const validFiles =
+      files.filter(
+        (file) =>
+          file.type.startsWith(
+            "video/"
+          )
+      );
+
 
     if (!validFiles.length) {
 
@@ -493,97 +462,131 @@ function SellerProducts() {
       return;
     }
 
+
     const newPreviews =
-      validFiles.map((file) =>
-        URL.createObjectURL(file)
+      validFiles.map(
+        (file) =>
+          URL.createObjectURL(
+            file
+          )
       );
 
-    setVideoFiles((previous) => [
-      ...previous,
-      ...validFiles,
-    ]);
 
-    setVideoPreviews((previous) => [
-      ...previous,
-      ...newPreviews,
-    ]);
+    setVideoFiles(
+      (previous) => [
+        ...previous,
+        ...validFiles,
+      ]
+    );
+
+
+    setVideoPreviews(
+      (previous) => [
+        ...previous,
+        ...newPreviews,
+      ]
+    );
+
 
     event.target.value = "";
 
   };
 
 
-  // ====================================================
+  // ===================================================
   // REMOVE IMAGE
-  // ====================================================
+  // ===================================================
 
-  const removeImage = (index) => {
+  const removeImage = (
+    index
+  ) => {
 
-    setImagePreviews((previous) =>
-      previous.filter(
-        (_, imageIndex) =>
-          imageIndex !== index
-      )
+    setImagePreviews(
+      (previous) =>
+        previous.filter(
+          (_, imageIndex) =>
+            imageIndex !== index
+        )
     );
 
-    setImageFiles((previous) => {
 
-      if (index >= previous.length) {
-        return previous;
+    setImageFiles(
+      (previous) => {
+
+        if (
+          index >=
+          previous.length
+        ) {
+          return previous;
+        }
+
+
+        return previous.filter(
+          (_, fileIndex) =>
+            fileIndex !== index
+        );
+
       }
-
-      return previous.filter(
-        (_, fileIndex) =>
-          fileIndex !== index
-      );
-
-    });
+    );
 
   };
 
 
-  // ====================================================
+  // ===================================================
   // REMOVE VIDEO
-  // ====================================================
+  // ===================================================
 
-  const removeVideo = (index) => {
+  const removeVideo = (
+    index
+  ) => {
 
-    setVideoPreviews((previous) =>
-      previous.filter(
-        (_, videoIndex) =>
-          videoIndex !== index
-      )
+    setVideoPreviews(
+      (previous) =>
+        previous.filter(
+          (_, videoIndex) =>
+            videoIndex !== index
+        )
     );
 
-    setVideoFiles((previous) => {
 
-      if (index >= previous.length) {
-        return previous;
+    setVideoFiles(
+      (previous) => {
+
+        if (
+          index >=
+          previous.length
+        ) {
+          return previous;
+        }
+
+
+        return previous.filter(
+          (_, fileIndex) =>
+            fileIndex !== index
+        );
+
       }
-
-      return previous.filter(
-        (_, fileIndex) =>
-          fileIndex !== index
-      );
-
-    });
+    );
 
   };
 
 
-  // ====================================================
-  // SAVE PRODUCT
-  // ====================================================
+  // ===================================================
+  // SUBMIT PRODUCT
+  // ===================================================
 
-  const handleSubmit = (event) => {
+  const handleSubmit = (
+    event
+  ) => {
 
     event.preventDefault();
 
     setFormError("");
 
-    // ----------------------------------------------
+
+    // -----------------------------------------------
     // VALIDATION
-    // ----------------------------------------------
+    // -----------------------------------------------
 
     if (!form.name.trim()) {
 
@@ -594,7 +597,10 @@ function SellerProducts() {
       return;
     }
 
-    if (!form.description.trim()) {
+
+    if (
+      !form.description.trim()
+    ) {
 
       setFormError(
         "Product description is required."
@@ -602,6 +608,7 @@ function SellerProducts() {
 
       return;
     }
+
 
     if (!form.category) {
 
@@ -611,6 +618,7 @@ function SellerProducts() {
 
       return;
     }
+
 
     if (
       form.price === "" ||
@@ -624,6 +632,7 @@ function SellerProducts() {
       return;
     }
 
+
     if (
       form.stockCount === "" ||
       Number(form.stockCount) < 0
@@ -636,7 +645,10 @@ function SellerProducts() {
       return;
     }
 
-    if (imagePreviews.length === 0) {
+
+    if (
+      imagePreviews.length === 0
+    ) {
 
       setFormError(
         "Please add at least one product image."
@@ -646,29 +658,34 @@ function SellerProducts() {
     }
 
 
-    // ----------------------------------------------
+    // -----------------------------------------------
     // PRODUCT DATA
-    // ----------------------------------------------
+    // -----------------------------------------------
 
     const productData = {
 
-      name: form.name.trim(),
+      name:
+        form.name.trim(),
 
       description:
         form.description.trim(),
 
-      category: form.category,
+      category:
+        form.category,
 
-      price: Number(form.price),
+      price:
+        Number(form.price),
 
       oldPrice:
         form.oldPrice === ""
           ? null
           : Number(form.oldPrice),
 
-      images: imagePreviews,
+      images:
+        imagePreviews,
 
-      videos: videoPreviews,
+      videos:
+        videoPreviews,
 
       stockStatus:
         form.stockStatus,
@@ -679,32 +696,44 @@ function SellerProducts() {
     };
 
 
-    // ----------------------------------------------
-    // EDIT PRODUCT
-    // ----------------------------------------------
+    // -----------------------------------------------
+    // EDIT
+    // -----------------------------------------------
 
-    if (editingProductId !== null) {
+    if (
+      editingProductId !==
+      null
+    ) {
 
       const updatedProducts =
-        products.map((product) => {
+        products.map(
+          (product) => {
 
-          if (
-            product.id ===
-            editingProductId
-          ) {
+            if (
+              String(product.id) ===
+              String(
+                editingProductId
+              )
+            ) {
 
-            return {
-              ...product,
-              ...productData,
-            };
+              return {
+                ...product,
+                ...productData,
+              };
+
+            }
+
+
+            return product;
 
           }
+        );
 
-          return product;
 
-        });
+      handleSaveProducts(
+        updatedProducts
+      );
 
-      saveProducts(updatedProducts);
 
       setSuccessMessage(
         "Product updated successfully."
@@ -712,9 +741,10 @@ function SellerProducts() {
 
     }
 
-    // ----------------------------------------------
-    // ADD PRODUCT
-    // ----------------------------------------------
+
+    // -----------------------------------------------
+    // ADD
+    // -----------------------------------------------
 
     else {
 
@@ -723,14 +753,19 @@ function SellerProducts() {
         id:
           Date.now(),
 
+        rating:
+          5,
+
         ...productData,
 
       };
 
-      saveProducts([
+
+      handleSaveProducts([
         ...products,
         newProduct,
       ]);
+
 
       setSuccessMessage(
         "Product added successfully."
@@ -739,103 +774,148 @@ function SellerProducts() {
     }
 
 
-    // ----------------------------------------------
-    // CLOSE
-    // ----------------------------------------------
-
     closeModal();
 
+
     setTimeout(() => {
+
       setSuccessMessage("");
+
     }, 3000);
 
   };
 
 
-  // ====================================================
+  // ===================================================
   // DELETE PRODUCT
-  // ====================================================
+  // ===================================================
 
   const handleDelete = () => {
 
-    if (deleteProductId === null) {
+    if (
+      deleteProductId ===
+      null
+    ) {
       return;
     }
+
 
     const updatedProducts =
       products.filter(
         (product) =>
-          product.id !==
-          deleteProductId
+          String(product.id) !==
+          String(deleteProductId)
       );
 
-    saveProducts(updatedProducts);
+
+    // -----------------------------------------------
+    // SAVE PRODUCT LIST
+    // -----------------------------------------------
+
+    handleSaveProducts(
+      updatedProducts
+    );
+
+
+    // -----------------------------------------------
+    // REMOVE FROM CART/FAVORITES
+    // -----------------------------------------------
+
+    removeProductFromCustomerData(
+      deleteProductId
+    );
+
+
+    // -----------------------------------------------
+    // CLOSE DELETE MODAL
+    // -----------------------------------------------
 
     setDeleteProductId(null);
+
 
     setSuccessMessage(
       "Product deleted successfully."
     );
 
+
     setTimeout(() => {
+
       setSuccessMessage("");
+
     }, 3000);
 
   };
 
 
-  // ====================================================
+  // ===================================================
   // FILTER PRODUCTS
-  // ====================================================
+  // ===================================================
 
   const filteredProducts =
-    products.filter((product) => {
+    products.filter(
+      (product) => {
 
-      const query =
-        searchQuery
-          .trim()
-          .toLowerCase();
-
-      const matchesSearch =
-        !query ||
-        product.name
-          .toLowerCase()
-          .includes(query) ||
-        product.description
-          .toLowerCase()
-          .includes(query) ||
-        product.category
-          .toLowerCase()
-          .includes(query);
-
-      const matchesCategory =
-        categoryFilter === "All" ||
-        product.category ===
-          categoryFilter;
-
-      return (
-        matchesSearch &&
-        matchesCategory
-      );
-
-    });
+        const query =
+          searchQuery
+            .trim()
+            .toLowerCase();
 
 
-  // ====================================================
+        const matchesSearch =
+          !query ||
+          String(
+            product.name
+          )
+            .toLowerCase()
+            .includes(query) ||
+          String(
+            product.description
+          )
+            .toLowerCase()
+            .includes(query) ||
+          String(
+            product.category
+          )
+            .toLowerCase()
+            .includes(query);
+
+
+        const matchesCategory =
+          categoryFilter ===
+            "All" ||
+          product.category ===
+            categoryFilter;
+
+
+        return (
+          matchesSearch &&
+          matchesCategory
+        );
+
+      }
+    );
+
+
+  // ===================================================
   // FORMAT PRICE
-  // ====================================================
+  // ===================================================
 
-  const formatPrice = (price) => {
+  const formatPrice = (
+    price
+  ) => {
 
-    return Number(price || 0)
-      .toLocaleString("en-IN");
+    return Number(
+      price || 0
+    ).toLocaleString(
+      "en-IN"
+    );
 
   };
 
 
-  // ====================================================
+  // ===================================================
   // RENDER
-  // ====================================================
+  // ===================================================
 
   return (
 
@@ -844,9 +924,9 @@ function SellerProducts() {
       <div className="seller-products-container">
 
 
-        {/* ==================================================
+        {/* ============================================
             HEADER
-        ================================================== */}
+        ============================================= */}
 
         <div className="seller-products-header">
 
@@ -868,22 +948,42 @@ function SellerProducts() {
           </div>
 
 
-          <button
-            type="button"
-            className="seller-add-product-button"
-            onClick={openAddModal}
-          >
-            <Plus size={18} />
+          <div className="seller-products-header-actions">
 
-            Add Product
-          </button>
+            <Link
+              to="/seller/account"
+              className="seller-products-back-account"
+            >
+
+              <ArrowLeft size={17} />
+
+              <span>
+                Back to Account
+              </span>
+
+            </Link>
+
+
+            <button
+              type="button"
+              className="seller-add-product-button"
+              onClick={openAddModal}
+            >
+
+              <Plus size={18} />
+
+              Add Product
+
+            </button>
+
+          </div>
 
         </div>
 
 
-        {/* ==================================================
-            SUCCESS MESSAGE
-        ================================================== */}
+        {/* ============================================
+            SUCCESS
+        ============================================= */}
 
         {successMessage && (
 
@@ -900,9 +1000,9 @@ function SellerProducts() {
         )}
 
 
-        {/* ==================================================
-            FILTER BAR
-        ================================================== */}
+        {/* ============================================
+            TOOLBAR
+        ============================================= */}
 
         <div className="seller-products-toolbar">
 
@@ -920,6 +1020,7 @@ function SellerProducts() {
                 )
               }
             />
+
 
             {searchQuery && (
 
@@ -952,6 +1053,7 @@ function SellerProducts() {
               All Categories
             </option>
 
+
             {categories.map(
               (category) => (
 
@@ -970,27 +1072,30 @@ function SellerProducts() {
         </div>
 
 
-        {/* ==================================================
+        {/* ============================================
             PRODUCT COUNT
-        ================================================== */}
+        ============================================= */}
 
         <div className="seller-product-count">
 
           <Package size={16} />
 
           <span>
+
             {filteredProducts.length}{" "}
+
             {filteredProducts.length === 1
               ? "product"
               : "products"}
+
           </span>
 
         </div>
 
 
-        {/* ==================================================
+        {/* ============================================
             PRODUCT TABLE
-        ================================================== */}
+        ============================================= */}
 
         {filteredProducts.length > 0 ? (
 
@@ -1107,19 +1212,24 @@ function SellerProducts() {
                         <div className="seller-product-price">
 
                           <strong>
+
                             ₹
                             {formatPrice(
                               product.price
                             )}
+
                           </strong>
+
 
                           {product.oldPrice && (
 
                             <del>
+
                               ₹
                               {formatPrice(
                                 product.oldPrice
                               )}
+
                             </del>
 
                           )}
@@ -1146,27 +1256,32 @@ function SellerProducts() {
 
                             {product.stockStatus ===
                             "in-stock" ? (
+
                               <>
                                 <CheckCircle
                                   size={13}
                                 />
+
                                 In Stock
                               </>
+
                             ) : (
+
                               <>
                                 <AlertCircle
                                   size={13}
                                 />
+
                                 Out of Stock
                               </>
+
                             )}
 
                           </span>
 
 
                           <small>
-                            {product.stockCount}{" "}
-                            units
+                            {product.stockCount} units
                           </small>
 
                         </div>
@@ -1181,6 +1296,7 @@ function SellerProducts() {
                         <div className="seller-product-media-count">
 
                           <span>
+
                             <ImageIcon
                               size={14}
                             />
@@ -1189,10 +1305,12 @@ function SellerProducts() {
                               product.images
                                 ?.length || 0
                             }
+
                           </span>
 
 
                           <span>
+
                             <Video
                               size={14}
                             />
@@ -1201,6 +1319,7 @@ function SellerProducts() {
                               product.videos
                                 ?.length || 0
                             }
+
                           </span>
 
                         </div>
@@ -1224,6 +1343,7 @@ function SellerProducts() {
                             }
                             title="Edit product"
                           >
+
                             <Pencil
                               size={16}
                             />
@@ -1245,6 +1365,7 @@ function SellerProducts() {
                             }
                             title="Delete product"
                           >
+
                             <Trash2
                               size={16}
                             />
@@ -1292,9 +1413,9 @@ function SellerProducts() {
       </div>
 
 
-      {/* ====================================================
+      {/* =================================================
           ADD / EDIT MODAL
-      ==================================================== */}
+      ================================================== */}
 
       {isModalOpen && (
 
@@ -1306,7 +1427,9 @@ function SellerProducts() {
               event.target ===
               event.currentTarget
             ) {
+
               closeModal();
+
             }
 
           }}
@@ -1322,15 +1445,19 @@ function SellerProducts() {
               <div>
 
                 <p className="seller-products-eyebrow">
+
                   {editingProductId !== null
                     ? "UPDATE PRODUCT"
                     : "NEW PRODUCT"}
+
                 </p>
 
                 <h2>
+
                   {editingProductId !== null
                     ? "Edit Product"
                     : "Add Product"}
+
                 </h2>
 
               </div>
@@ -1342,7 +1469,9 @@ function SellerProducts() {
                 onClick={closeModal}
                 aria-label="Close"
               >
+
                 <X size={21} />
+
               </button>
 
             </div>
@@ -1375,7 +1504,7 @@ function SellerProducts() {
               )}
 
 
-              {/* BASIC DETAILS */}
+              {/* PRODUCT INFORMATION */}
 
               <div className="seller-form-section">
 
@@ -1438,6 +1567,7 @@ function SellerProducts() {
                         Select category
                       </option>
 
+
                       {categories.map(
                         (category) => (
 
@@ -1485,10 +1615,13 @@ function SellerProducts() {
                   <div className="seller-form-field">
 
                     <label htmlFor="product-old-price">
+
                       Original Price (₹)
+
                       <small>
                         Optional
                       </small>
+
                     </label>
 
                     <input
@@ -1535,7 +1668,7 @@ function SellerProducts() {
               </div>
 
 
-              {/* ==================================================
+              {/* =================================================
                   IMAGES
               ================================================== */}
 
@@ -1550,8 +1683,7 @@ function SellerProducts() {
                     </h3>
 
                     <p>
-                      Add multiple product
-                      images.
+                      Add multiple product images.
                     </p>
 
                   </div>
@@ -1575,10 +1707,9 @@ function SellerProducts() {
 
                         <img
                           src={image}
-                          alt={`Product ${
-                            index + 1
-                          }`}
+                          alt={`Product ${index + 1}`}
                         />
+
 
                         <button
                           type="button"
@@ -1590,7 +1721,9 @@ function SellerProducts() {
                           }
                           aria-label="Remove image"
                         >
+
                           <X size={15} />
+
                         </button>
 
 
@@ -1607,8 +1740,6 @@ function SellerProducts() {
                     )
                   )}
 
-
-                  {/* ADD IMAGE */}
 
                   <button
                     type="button"
@@ -1647,7 +1778,7 @@ function SellerProducts() {
               </div>
 
 
-              {/* ==================================================
+              {/* =================================================
                   VIDEOS
               ================================================== */}
 
@@ -1662,8 +1793,7 @@ function SellerProducts() {
                     </h3>
 
                     <p>
-                      Add product demonstration
-                      videos.
+                      Add product demonstration videos.
                     </p>
 
                   </div>
@@ -1691,6 +1821,7 @@ function SellerProducts() {
                           preload="metadata"
                         />
 
+
                         <button
                           type="button"
                           className="seller-media-remove"
@@ -1701,7 +1832,9 @@ function SellerProducts() {
                           }
                           aria-label="Remove video"
                         >
+
                           <X size={15} />
+
                         </button>
 
                       </div>
@@ -1709,8 +1842,6 @@ function SellerProducts() {
                     )
                   )}
 
-
-                  {/* ADD VIDEO */}
 
                   <button
                     type="button"
@@ -1749,8 +1880,8 @@ function SellerProducts() {
               </div>
 
 
-              {/* ==================================================
-                  STOCK
+              {/* =================================================
+                  INVENTORY
               ================================================== */}
 
               <div className="seller-form-section">
@@ -1764,8 +1895,7 @@ function SellerProducts() {
                     </h3>
 
                     <p>
-                      Manage the current product
-                      stock.
+                      Manage the current product stock.
                     </p>
 
                   </div>
@@ -1775,8 +1905,6 @@ function SellerProducts() {
 
                 <div className="seller-form-grid">
 
-
-                  {/* STOCK STATUS */}
 
                   <div className="seller-form-field">
 
@@ -1808,8 +1936,6 @@ function SellerProducts() {
                   </div>
 
 
-                  {/* STOCK COUNT */}
-
                   <div className="seller-form-field">
 
                     <label htmlFor="product-stock-count">
@@ -1838,9 +1964,7 @@ function SellerProducts() {
               </div>
 
 
-              {/* ==================================================
-                  FORM ACTIONS
-              ================================================== */}
+              {/* FORM ACTIONS */}
 
               <div className="seller-product-form-actions">
 
@@ -1852,21 +1976,26 @@ function SellerProducts() {
                   Cancel
                 </button>
 
+
                 <button
                   type="submit"
                   className="seller-form-submit"
                 >
 
                   {editingProductId !== null ? (
+
                     <>
                       <Pencil size={16} />
                       Update Product
                     </>
+
                   ) : (
+
                     <>
                       <Plus size={17} />
                       Add Product
                     </>
+
                   )}
 
                 </button>
@@ -1882,9 +2011,9 @@ function SellerProducts() {
       )}
 
 
-      {/* ====================================================
+      {/* =================================================
           DELETE CONFIRMATION
-      ==================================================== */}
+      ================================================== */}
 
       {deleteProductId !== null && (
 
@@ -1898,9 +2027,11 @@ function SellerProducts() {
 
             </div>
 
+
             <h2>
               Delete Product?
             </h2>
+
 
             <p>
               This product will be removed from
@@ -1915,11 +2046,14 @@ function SellerProducts() {
                 type="button"
                 className="seller-delete-cancel"
                 onClick={() =>
-                  setDeleteProductId(null)
+                  setDeleteProductId(
+                    null
+                  )
                 }
               >
                 Cancel
               </button>
+
 
               <button
                 type="button"
@@ -1942,7 +2076,6 @@ function SellerProducts() {
     </main>
 
   );
-
 }
 
 export default SellerProducts;

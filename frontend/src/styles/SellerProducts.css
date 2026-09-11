@@ -1354,3 +1354,88 @@
   }
 
 }
+/* =========================================================
+   HEADER ACTIONS
+   ========================================================= */
+
+.seller-products-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+
+/* =========================================================
+   BACK TO ACCOUNT
+   ========================================================= */
+
+.seller-products-back-account {
+  min-height: 42px;
+
+  padding: 0 15px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 8px;
+
+  background: #ffffff;
+
+  border: 1px solid #ddd5c5;
+
+  border-radius: 8px;
+
+  color: #145b34;
+
+  font-family: inherit;
+
+  font-size: 12px;
+
+  font-weight: 700;
+
+  text-decoration: none;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.seller-products-back-account:hover {
+  background: #f1f6f0;
+
+  border-color: #cbdcc9;
+
+  transform: translateY(-1px);
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 600px) {
+
+  .seller-products-header {
+    align-items: flex-start;
+
+    flex-direction: column;
+  }
+
+  .seller-products-header-actions {
+    width: 100%;
+
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .seller-products-back-account {
+    width: 100%;
+  }
+
+  .seller-add-product-button {
+    width: 100%;
+  }
+
+}

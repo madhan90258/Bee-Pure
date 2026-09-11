@@ -1,4 +1,5 @@
 import { useState } from "react";
+
 import {
   User,
   Mail,
@@ -40,6 +41,21 @@ function SellerAccount() {
   });
 
   // =========================================
+  // PERSONAL DETAILS EDIT
+  // =========================================
+
+  const [isEditingProfile, setIsEditingProfile] =
+    useState(false);
+
+  const [editName, setEditName] = useState(
+    seller.name
+  );
+
+  const [editMobile, setEditMobile] = useState(
+    seller.mobile
+  );
+
+  // =========================================
   // USERNAME FORM
   // =========================================
 
@@ -60,14 +76,20 @@ function SellerAccount() {
   const [confirmPassword, setConfirmPassword] =
     useState("");
 
-  const [showCurrentPassword, setShowCurrentPassword] =
-    useState(false);
+  const [
+    showCurrentPassword,
+    setShowCurrentPassword,
+  ] = useState(false);
 
-  const [showNewPassword, setShowNewPassword] =
-    useState(false);
+  const [
+    showNewPassword,
+    setShowNewPassword,
+  ] = useState(false);
 
-  const [showConfirmPassword, setShowConfirmPassword] =
-    useState(false);
+  const [
+    showConfirmPassword,
+    setShowConfirmPassword,
+  ] = useState(false);
 
   // =========================================
   // MESSAGES
@@ -86,6 +108,105 @@ function SellerAccount() {
   const clearMessages = () => {
     setSuccessMessage("");
     setErrorMessage("");
+  };
+
+  // =========================================
+  // EDIT PERSONAL DETAILS
+  // =========================================
+
+  const handleEditProfile = () => {
+    clearMessages();
+
+    setEditName(seller.name);
+    setEditMobile(seller.mobile);
+
+    setIsEditingProfile(true);
+  };
+
+  // =========================================
+  // CANCEL PERSONAL DETAILS EDIT
+  // =========================================
+
+  const handleCancelProfileEdit = () => {
+    setEditName(seller.name);
+    setEditMobile(seller.mobile);
+
+    setIsEditingProfile(false);
+
+    clearMessages();
+  };
+
+  // =========================================
+  // SAVE PERSONAL DETAILS
+  // =========================================
+
+  const handleSaveProfile = (event) => {
+    event.preventDefault();
+
+    clearMessages();
+
+    const name = editName.trim();
+    const mobile = editMobile.trim();
+
+    // -----------------------------------------
+    // NAME VALIDATION
+    // -----------------------------------------
+
+    if (!name) {
+      setErrorMessage(
+        "Please enter your seller name."
+      );
+      return;
+    }
+
+    if (name.length < 2) {
+      setErrorMessage(
+        "Seller name must contain at least 2 characters."
+      );
+      return;
+    }
+
+    // -----------------------------------------
+    // MOBILE VALIDATION
+    // -----------------------------------------
+
+    if (!mobile) {
+      setErrorMessage(
+        "Please enter your mobile number."
+      );
+      return;
+    }
+
+    const cleanMobile = mobile.replace(/\D/g, "");
+
+    if (
+      cleanMobile.length !== 10 ||
+      !/^[6-9]/.test(cleanMobile)
+    ) {
+      setErrorMessage(
+        "Please enter a valid 10-digit mobile number."
+      );
+      return;
+    }
+
+    // -----------------------------------------
+    // UPDATE SELLER
+    // -----------------------------------------
+
+    setSeller((previous) => ({
+      ...previous,
+      name,
+      mobile,
+    }));
+
+    setEditName(name);
+    setEditMobile(mobile);
+
+    setIsEditingProfile(false);
+
+    setSuccessMessage(
+      "Personal details updated successfully."
+    );
   };
 
   // =========================================
@@ -113,10 +234,19 @@ function SellerAccount() {
       return;
     }
 
+    if (!/^[a-zA-Z0-9._-]+$/.test(username)) {
+      setErrorMessage(
+        "Username can contain only letters, numbers, dots, underscores and hyphens."
+      );
+      return;
+    }
+
     setSeller((previous) => ({
       ...previous,
       username,
     }));
+
+    setNewUsername(username);
 
     setSuccessMessage(
       "Username updated successfully."
@@ -153,6 +283,13 @@ function SellerAccount() {
       return;
     }
 
+    if (!confirmPassword) {
+      setErrorMessage(
+        "Please confirm your new password."
+      );
+      return;
+    }
+
     if (newPassword !== confirmPassword) {
       setErrorMessage(
         "New password and confirm password do not match."
@@ -164,14 +301,7 @@ function SellerAccount() {
       BACKEND TODO
 
       Later this section will send the password
-      change request to your backend.
-
-      Example:
-
-      await api.put("/seller/account/password", {
-        currentPassword,
-        newPassword
-      });
+      change request to Supabase/backend.
     */
 
     setCurrentPassword("");
@@ -200,11 +330,13 @@ function SellerAccount() {
 
     localStorage.removeItem("sellerLoggedIn");
 
-    navigate("/login");
+    navigate("/login", {
+      replace: true,
+    });
   };
 
   // =========================================
-  // DASHBOARD NAVIGATION
+  // SELLER NAVIGATION
   // =========================================
 
   const sellerNavigation = [
@@ -251,6 +383,10 @@ function SellerAccount() {
     },
   ];
 
+  // =========================================
+  // PAGE
+  // =========================================
+
   return (
     <main className="seller-account-page">
 
@@ -263,6 +399,7 @@ function SellerAccount() {
         <div className="seller-account-header-inner">
 
           <div>
+
             <span className="seller-account-eyebrow">
               Seller Panel
             </span>
@@ -275,6 +412,7 @@ function SellerAccount() {
               Manage your seller profile and account
               security.
             </p>
+
           </div>
 
           <div className="seller-account-header-icon">
@@ -298,6 +436,8 @@ function SellerAccount() {
 
         <aside className="seller-account-sidebar">
 
+          {/* SELLER PROFILE */}
+
           <div className="seller-profile-card">
 
             <div className="seller-avatar">
@@ -319,46 +459,53 @@ function SellerAccount() {
           </div>
 
 
+          {/* NAVIGATION */}
+
           <nav className="seller-account-navigation">
 
-            {sellerNavigation.map(
-              (item) => {
+            {sellerNavigation.map((item) => {
 
-                const Icon = item.icon;
+              const Icon = item.icon;
 
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.path}
-                    className={`seller-account-nav-link ${
-                      item.active
-                        ? "active"
-                        : ""
-                    }`}
-                  >
-                    <Icon size={18} />
+              return (
+                <Link
+                  key={item.name}
+                  to={item.path}
+                  className={`seller-account-nav-link ${
+                    item.active
+                      ? "active"
+                      : ""
+                  }`}
+                >
 
-                    <span>
-                      {item.name}
-                    </span>
-                  </Link>
-                );
-              }
-            )}
+                  <Icon size={18} />
+
+                  <span>
+                    {item.name}
+                  </span>
+
+                </Link>
+              );
+
+            })}
 
           </nav>
 
+
+          {/* LOGOUT */}
 
           <button
             type="button"
             className="seller-logout-button"
             onClick={handleLogout}
           >
+
             <LogOut size={18} />
 
             <span>
               Logout
             </span>
+
           </button>
 
         </aside>
@@ -371,7 +518,7 @@ function SellerAccount() {
         <div className="seller-account-content">
 
           {/* =========================================
-              NOTIFICATIONS
+              SUCCESS MESSAGE
           ========================================= */}
 
           {successMessage && (
@@ -385,6 +532,11 @@ function SellerAccount() {
 
             </div>
           )}
+
+
+          {/* =========================================
+              ERROR MESSAGE
+          ========================================= */}
 
           {errorMessage && (
             <div className="seller-account-message error">
@@ -405,13 +557,16 @@ function SellerAccount() {
 
           <section className="seller-account-card">
 
+            {/* CARD HEADER */}
+
             <div className="seller-card-header">
 
               <div className="seller-card-icon">
                 <User size={21} />
               </div>
 
-              <div>
+              <div className="seller-card-header-content">
+
                 <h2>
                   Profile Details
                 </h2>
@@ -419,12 +574,40 @@ function SellerAccount() {
                 <p>
                   Your seller account information.
                 </p>
+
               </div>
+
+
+              {/* EDIT BUTTON */}
+
+              {!isEditingProfile && (
+                <button
+                  type="button"
+                  className="seller-edit-button"
+                  onClick={handleEditProfile}
+                >
+
+                  <User size={16} />
+
+                  <span>
+                    Edit
+                  </span>
+
+                </button>
+              )}
 
             </div>
 
 
+            {/* =====================================
+                PROFILE DETAILS
+            ===================================== */}
+
             <div className="seller-profile-details">
+
+              {/* =====================================
+                  SELLER NAME
+              ===================================== */}
 
               <div className="seller-detail-item">
 
@@ -432,16 +615,46 @@ function SellerAccount() {
                   Seller Name
                 </span>
 
-                <div className="seller-detail-value">
-                  <User size={17} />
+                {isEditingProfile ? (
 
-                  <span>
-                    {seller.name}
-                  </span>
-                </div>
+                  <div className="seller-inline-input-wrapper">
+
+                    <User size={17} />
+
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(event) =>
+                        setEditName(
+                          event.target.value
+                        )
+                      }
+                      placeholder="Enter seller name"
+                      autoComplete="name"
+                    />
+
+                  </div>
+
+                ) : (
+
+                  <div className="seller-detail-value">
+
+                    <User size={17} />
+
+                    <span>
+                      {seller.name}
+                    </span>
+
+                  </div>
+
+                )}
 
               </div>
 
+
+              {/* =====================================
+                  EMAIL
+              ===================================== */}
 
               <div className="seller-detail-item">
 
@@ -450,15 +663,21 @@ function SellerAccount() {
                 </span>
 
                 <div className="seller-detail-value">
+
                   <Mail size={17} />
 
                   <span>
                     {seller.email}
                   </span>
+
                 </div>
 
               </div>
 
+
+              {/* =====================================
+                  MOBILE NUMBER
+              ===================================== */}
 
               <div className="seller-detail-item">
 
@@ -466,16 +685,46 @@ function SellerAccount() {
                   Mobile Number
                 </span>
 
-                <div className="seller-detail-value">
-                  <Phone size={17} />
+                {isEditingProfile ? (
 
-                  <span>
-                    {seller.mobile}
-                  </span>
-                </div>
+                  <div className="seller-inline-input-wrapper">
+
+                    <Phone size={17} />
+
+                    <input
+                      type="tel"
+                      value={editMobile}
+                      onChange={(event) =>
+                        setEditMobile(
+                          event.target.value
+                        )
+                      }
+                      placeholder="Enter mobile number"
+                      autoComplete="tel"
+                    />
+
+                  </div>
+
+                ) : (
+
+                  <div className="seller-detail-value">
+
+                    <Phone size={17} />
+
+                    <span>
+                      {seller.mobile}
+                    </span>
+
+                  </div>
+
+                )}
 
               </div>
 
+
+              {/* =====================================
+                  ACCOUNT TYPE
+              ===================================== */}
 
               <div className="seller-detail-item">
 
@@ -497,6 +746,44 @@ function SellerAccount() {
 
             </div>
 
+
+            {/* =====================================
+                INLINE EDIT ACTIONS
+            ===================================== */}
+
+            {isEditingProfile && (
+
+              <form
+                className="seller-inline-edit-actions"
+                onSubmit={handleSaveProfile}
+              >
+
+                <button
+                  type="submit"
+                  className="seller-save-button"
+                >
+
+                  <Save size={17} />
+
+                  <span>
+                    Save Changes
+                  </span>
+
+                </button>
+
+
+                <button
+                  type="button"
+                  className="seller-cancel-button"
+                  onClick={handleCancelProfileEdit}
+                >
+                  Cancel
+                </button>
+
+              </form>
+
+            )}
+
           </section>
 
 
@@ -512,7 +799,7 @@ function SellerAccount() {
                 <UserCircle size={21} />
               </div>
 
-              <div>
+              <div className="seller-card-header-content">
 
                 <h2>
                   Change Username
@@ -565,11 +852,13 @@ function SellerAccount() {
                 type="submit"
                 className="seller-save-button"
               >
+
                 <Save size={17} />
 
                 <span>
                   Save Username
                 </span>
+
               </button>
 
             </form>
@@ -589,7 +878,7 @@ function SellerAccount() {
                 <Lock size={21} />
               </div>
 
-              <div>
+              <div className="seller-card-header-content">
 
                 <h2>
                   Change Password
@@ -610,7 +899,7 @@ function SellerAccount() {
               onSubmit={handlePasswordUpdate}
             >
 
-              {/* Current Password */}
+              {/* CURRENT PASSWORD */}
 
               <div className="seller-form-group">
 
@@ -654,11 +943,13 @@ function SellerAccount() {
                         : "Show password"
                     }
                   >
+
                     {showCurrentPassword ? (
                       <EyeOff size={18} />
                     ) : (
                       <Eye size={18} />
                     )}
+
                   </button>
 
                 </div>
@@ -666,7 +957,7 @@ function SellerAccount() {
               </div>
 
 
-              {/* New Password */}
+              {/* NEW PASSWORD */}
 
               <div className="seller-form-group">
 
@@ -710,11 +1001,13 @@ function SellerAccount() {
                         : "Show password"
                     }
                   >
+
                     {showNewPassword ? (
                       <EyeOff size={18} />
                     ) : (
                       <Eye size={18} />
                     )}
+
                   </button>
 
                 </div>
@@ -727,7 +1020,7 @@ function SellerAccount() {
               </div>
 
 
-              {/* Confirm Password */}
+              {/* CONFIRM PASSWORD */}
 
               <div className="seller-form-group">
 
@@ -771,11 +1064,13 @@ function SellerAccount() {
                         : "Show password"
                     }
                   >
+
                     {showConfirmPassword ? (
                       <EyeOff size={18} />
                     ) : (
                       <Eye size={18} />
                     )}
+
                   </button>
 
                 </div>
@@ -787,11 +1082,13 @@ function SellerAccount() {
                 type="submit"
                 className="seller-save-button"
               >
+
                 <Save size={17} />
 
                 <span>
                   Update Password
                 </span>
+
               </button>
 
             </form>
@@ -811,15 +1108,14 @@ function SellerAccount() {
                 <ShieldCheck size={21} />
               </div>
 
-              <div>
+              <div className="seller-card-header-content">
 
                 <h2>
-                  Account Security
+                  Security
                 </h2>
 
                 <p>
-                  Manage your seller session and
-                  account access.
+                  Manage your account security.
                 </p>
 
               </div>
@@ -832,18 +1128,18 @@ function SellerAccount() {
               <div className="seller-security-status">
 
                 <div className="security-status-icon">
-                  <ShieldCheck size={22} />
+                  <ShieldCheck size={21} />
                 </div>
 
                 <div>
 
                   <strong>
-                    Seller account protected
+                    Your account is protected
                   </strong>
 
                   <p>
-                    Your seller account is currently
-                    active.
+                    Keep your password secure and
+                    never share it with anyone.
                   </p>
 
                 </div>
@@ -856,11 +1152,13 @@ function SellerAccount() {
                 className="seller-security-logout"
                 onClick={handleLogout}
               >
+
                 <LogOut size={17} />
 
                 <span>
-                  Logout from Seller Account
+                  Logout
                 </span>
+
               </button>
 
             </div>
