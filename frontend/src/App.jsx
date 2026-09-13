@@ -18,6 +18,7 @@ import Contact from "./pages/Contact";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import Login from "./pages/Login";
+import Signup from "./pages/Signup";
 import Account from "./pages/Account";
 import Favorites from "./pages/Favorites";
 
@@ -30,8 +31,10 @@ import SellerReviews from "./pages/SellerReviews";
 import SellerOrders from "./pages/SellerOrders";
 import SellerAccount from "./pages/SellerAccount";
 
+// -----------------------------------------
+// Scroll to top whenever route changes
+// -----------------------------------------
 
-// Scroll to top whenever the route changes
 function ScrollToTop() {
   const { pathname } = useLocation();
 
@@ -46,35 +49,92 @@ function ScrollToTop() {
   return null;
 }
 
+// -----------------------------------------
+// APP
+// -----------------------------------------
 
 function App() {
   return (
-    <BrowserRouter>
-
+    <BrowserRouter basename="/Bee-Pure">
       <ScrollToTop />
 
       <Navbar />
 
       <Routes>
 
-        {/* Customer Pages */}
+        {/* =================================
+            CUSTOMER PAGES
+        ================================== */}
+
         <Route path="/" element={<Home />} />
-        <Route path="/shop" element={<Shop />} />
-        <Route path="/product/:id" element={<ProductDetails />} />
-        <Route path="/our-story" element={<OurStory />} />
-        <Route path="/farmers" element={<Farmers />} />
-        <Route path="/contact" element={<Contact />} />
 
-        {/* Shopping */}
-        <Route path="/cart" element={<Cart />} />
-        <Route path="/checkout" element={<Checkout />} />
+        <Route
+          path="/shop"
+          element={<Shop />}
+        />
 
-        {/* Account */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/account" element={<Account />} />
-        <Route path="/favorites" element={<Favorites />} />
+        <Route
+          path="/product/:id"
+          element={<ProductDetails />}
+        />
 
-        {/* Seller Dashboard */}
+        <Route
+          path="/our-story"
+          element={<OurStory />}
+        />
+
+        <Route
+          path="/farmers"
+          element={<Farmers />}
+        />
+
+        <Route
+          path="/contact"
+          element={<Contact />}
+        />
+
+        {/* =================================
+            SHOPPING
+        ================================== */}
+
+        <Route
+          path="/cart"
+          element={<Cart />}
+        />
+
+        <Route
+          path="/checkout"
+          element={<Checkout />}
+        />
+
+        {/* =================================
+            ACCOUNT / AUTHENTICATION
+        ================================== */}
+
+        <Route
+          path="/login"
+          element={<Login />}
+        />
+
+        <Route
+          path="/signup"
+          element={<Signup />}
+        />
+
+        <Route
+          path="/account"
+          element={<Account />}
+        />
+
+        <Route
+          path="/favorites"
+          element={<Favorites />}
+        />
+
+        {/* =================================
+            SELLER DASHBOARD
+        ================================== */}
+
         <Route
           path="/seller/dashboard"
           element={<SellerDashboard />}
@@ -118,7 +178,6 @@ function App() {
       </Routes>
 
       <Footer />
-
     </BrowserRouter>
   );
 }
