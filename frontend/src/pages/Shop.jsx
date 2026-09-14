@@ -1,736 +1,905 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import {
-  ShoppingCart,
-  ArrowRight,
-  Check,
-  Minus,
-  Plus,
-} from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import {
-  addToCart,
-  getCart,
-  updateCartQuantity,
-  removeFromCart,
-} from "../utils/cart";
+  ShoppingCart,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
+
+import { supabase } from "../lib/supabase";
 
 import "../styles/Shop.css";
 
-function Shop() {
-  const [cart, setCart] = useState([]);
-  const [addedProduct, setAddedProduct] = useState(null);
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
 
-  // =========================================
-  // CATEGORY FILTER
-  // =========================================
+/* =========================================
+   SUPABASE STORAGE IMAGE URL
+========================================= */
+
+const getProductImageUrl = (storagePath) => {
+  if (!storagePath) {
+    return "";
+  }
+
+  // If the database already contains a full URL
+  if (
+    storagePath.startsWith("http://") ||
+    storagePath.startsWith("https://")
+  ) {
+    return storagePath;
+  }
+
+  const { data } = supabase.storage
+    .from("product-images")
+    .getPublicUrl(storagePath);
+
+  return data?.publicUrl || "";
+};
+
+
+/* =========================================
+   SHOP
+========================================= */
+
+function Shop() {
+  const [products, setProducts] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+
+  const [error, setError] = useState("");
+
+  const [searchTerm, setSearchTerm] =
+    useState("");
 
   const [selectedCategory, setSelectedCategory] =
-    useState("All Products");
+    useState("");
 
-  // =========================================
-  // SEARCH PARAMETER
-  // =========================================
+  const [selectedFarmer, setSelectedFarmer] =
+    useState("");
 
-  const [searchParams] = useSearchParams();
+  const [sortBy, setSortBy] =
+    useState("newest");
 
-  const searchQuery = searchParams.get("search") || "";
+  const [showFilters, setShowFilters] =
+    useState(false);
 
-  // =========================================
-  // PRODUCTS
-  // =========================================
+  const [categories, setCategories] =
+    useState([]);
 
-  const products = [
-    {
-      id: 1,
-      name: "Pure Forest Honey",
-      category: "Honey",
-      price: 499,
-      oldPrice: 599,
-      image: "/products/forest-honey.jpg",
-      rating: 5,
-      description:
-        "Pure forest honey collected naturally from trusted local beekeepers. Rich in natural goodness, flavour and nutrients.",
-    },
+  const [farmers, setFarmers] =
+    useState([]);
 
-    {
-      id: 2,
-      name: "Raw Organic Honey",
-      category: "Honey",
-      price: 399,
-      oldPrice: null,
-      image: "/products/raw-honey.jpg",
-      rating: 5,
-      description:
-        "Naturally raw and minimally processed honey sourced directly from trusted farmers.",
-    },
-
-    {
-      id: 3,
-      name: "Natural Jaggery",
-      category: "Natural Sweeteners",
-      price: 249,
-      oldPrice: 299,
-      image: "/products/jaggery.jpg",
-      rating: 4,
-      description:
-        "Traditional natural jaggery made with care and sourced directly from local producers.",
-    },
-
-    {
-      id: 4,
-      name: "Organic Turmeric",
-      category: "Healthy Foods",
-      price: 199,
-      oldPrice: null,
-      image: "/products/turmeric.jpg",
-      rating: 5,
-      description:
-        "Naturally grown turmeric with rich colour, flavour and everyday wellness benefits.",
-    },
-
-    {
-      id: 5,
-      name: "Organic A2 Ghee",
-      category: "Healthy Foods",
-      price: 699,
-      oldPrice: 799,
-      image: "/products/ghee.jpg",
-      rating: 5,
-      description:
-        "Traditional A2 ghee made from quality milk and prepared with care.",
-    },
-
-    {
-      id: 6,
-      name: "Forest Bee Honey",
-      category: "Honey",
-      price: 549,
-      oldPrice: null,
-      image: "/products/forest-bee-honey.jpg",
-      rating: 5,
-      description:
-        "Authentic forest honey with a naturally rich taste, sourced from local beekeepers.",
-    },
-  ];
-
-  // =========================================
-  // SEARCH + CATEGORY FILTER
-  // =========================================
-
-  const filteredProducts = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-
-    return products.filter((product) => {
-      // -----------------------------------------
-      // CATEGORY FILTER
-      // -----------------------------------------
-
-      const matchesCategory =
-        selectedCategory === "All Products" ||
-        product.category.toLowerCase() ===
-          selectedCategory.toLowerCase();
-
-      // -----------------------------------------
-      // SEARCH FILTER
-      // -----------------------------------------
-
-      const matchesSearch =
-        !query ||
-        product.name.toLowerCase().includes(query) ||
-        product.category.toLowerCase().includes(query) ||
-        product.description.toLowerCase().includes(query);
-
-      return matchesCategory && matchesSearch;
-    });
-  }, [searchQuery, selectedCategory]);
-
-  // =========================================
-  // LOAD CART
-  // =========================================
+  /* =========================================
+     LOAD PRODUCTS
+  ========================================== */
 
   useEffect(() => {
-    const loadCart = () => {
-      setCart(getCart());
+    const loadProducts = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const response = await fetch(
+          `${API_URL}/api/products?limit=100`
+        );
+
+        const result =
+          await response.json();
+
+        if (
+          !response.ok ||
+          !result.success
+        ) {
+          throw new Error(
+            result.message ||
+              "Unable to fetch products"
+          );
+        }
+
+        const mappedProducts =
+          (result.products || []).map(
+            (product) => {
+              const primaryImage =
+                product.product_images?.find(
+                  (image) =>
+                    image.is_primary
+                ) ||
+                product.product_images?.[0];
+
+              return {
+                id: product.id,
+
+                name: product.name,
+
+                category:
+                  product.categories?.name ||
+                  "",
+
+                categoryId:
+                  product.category_id,
+
+                farmer:
+                  product.farmers?.name ||
+                  "",
+
+                farmerId:
+                  product.farmer_id,
+
+                price:
+                  Number(product.price) || 0,
+
+                oldPrice:
+                  product.old_price != null
+                    ? Number(
+                        product.old_price
+                      )
+                    : null,
+
+                image:
+                  getProductImageUrl(
+                    primaryImage?.storage_path
+                  ),
+
+                rating:
+                  Number(product.rating) ||
+                  0,
+
+                description:
+                  product.description || "",
+
+                stockQuantity:
+                  Number(
+                    product.stock_quantity
+                  ) || 0,
+
+                slug:
+                  product.slug || "",
+              };
+            }
+          );
+
+        setProducts(mappedProducts);
+      } catch (err) {
+        console.error(
+          "Failed to load products:",
+          err
+        );
+
+        setError(
+          err.message ||
+            "Unable to load products"
+        );
+      } finally {
+        setLoading(false);
+      }
     };
 
-    loadCart();
-
-    window.addEventListener("cartUpdated", loadCart);
-
-    return () => {
-      window.removeEventListener("cartUpdated", loadCart);
-    };
+    loadProducts();
   }, []);
 
-  // =========================================
-  // GET PRODUCT QUANTITY
-  // =========================================
 
-  const getProductQuantity = (productId) => {
-    const item = cart.find(
-      (item) => item.id === productId
-    );
+  /* =========================================
+     LOAD CATEGORIES
+  ========================================== */
 
-    return item ? item.quantity : 0;
-  };
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const response = await fetch(
+          `${API_URL}/api/categories`
+        );
 
-  // =========================================
-  // ADD TO CART
-  // =========================================
+        const result =
+          await response.json();
+
+        if (
+          response.ok &&
+          result.success
+        ) {
+          setCategories(
+            result.categories || []
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Failed to load categories:",
+          error
+        );
+      }
+    };
+
+    loadCategories();
+  }, []);
+
+
+  /* =========================================
+     LOAD FARMERS
+  ========================================== */
+
+  useEffect(() => {
+    const loadFarmers = async () => {
+      try {
+        const response = await fetch(
+          `${API_URL}/api/farmers`
+        );
+
+        const result =
+          await response.json();
+
+        if (
+          response.ok &&
+          result.success
+        ) {
+          setFarmers(
+            result.farmers || []
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Failed to load farmers:",
+          error
+        );
+      }
+    };
+
+    loadFarmers();
+  }, []);
+
+
+  /* =========================================
+     FILTER + SORT PRODUCTS
+  ========================================== */
+
+  const filteredProducts =
+    products
+      .filter((product) => {
+        const search =
+          searchTerm
+            .trim()
+            .toLowerCase();
+
+        if (!search) {
+          return true;
+        }
+
+        return (
+          product.name
+            .toLowerCase()
+            .includes(search) ||
+          product.category
+            .toLowerCase()
+            .includes(search) ||
+          product.farmer
+            .toLowerCase()
+            .includes(search)
+        );
+      })
+      .filter((product) => {
+        if (!selectedCategory) {
+          return true;
+        }
+
+        return (
+          String(product.categoryId) ===
+          String(selectedCategory)
+        );
+      })
+      .filter((product) => {
+        if (!selectedFarmer) {
+          return true;
+        }
+
+        return (
+          String(product.farmerId) ===
+          String(selectedFarmer)
+        );
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case "price-low":
+            return a.price - b.price;
+
+          case "price-high":
+            return b.price - a.price;
+
+          case "rating":
+            return b.rating - a.rating;
+
+          case "name":
+            return a.name.localeCompare(
+              b.name
+            );
+
+          case "newest":
+          default:
+            return 0;
+        }
+      });
+
+
+  /* =========================================
+     ADD TO CART
+  ========================================== */
 
   const handleAddToCart = (product) => {
-    const updatedCart = addToCart(product);
+    const savedCart =
+      JSON.parse(
+        localStorage.getItem(
+          "beePureCart"
+        )
+      ) || [];
 
-    setCart(updatedCart);
+    const existingProduct =
+      savedCart.find(
+        (cartProduct) =>
+          String(cartProduct.id) ===
+          String(product.id)
+      );
 
-    setAddedProduct(product.id);
+    let updatedCart;
 
-    setTimeout(() => {
-      setAddedProduct(null);
-    }, 1000);
-  };
+    if (existingProduct) {
+      updatedCart =
+        savedCart.map(
+          (cartProduct) =>
+            String(cartProduct.id) ===
+            String(product.id)
+              ? {
+                  ...cartProduct,
 
-  // =========================================
-  // INCREASE QUANTITY
-  // =========================================
+                  quantity:
+                    (cartProduct.quantity ||
+                      0) + 1,
+                }
+              : cartProduct
+        );
+    } else {
+      updatedCart = [
+        ...savedCart,
 
-  const handleIncrease = (product) => {
-    const currentQuantity =
-      getProductQuantity(product.id);
-
-    const updatedCart = updateCartQuantity(
-      product.id,
-      currentQuantity + 1
-    );
-
-    setCart(updatedCart);
-  };
-
-  // =========================================
-  // DECREASE QUANTITY
-  // =========================================
-
-  const handleDecrease = (product) => {
-    const currentQuantity =
-      getProductQuantity(product.id);
-
-    if (currentQuantity <= 1) {
-      const updatedCart = removeFromCart(product.id);
-
-      setCart(updatedCart);
-
-      return;
+        {
+          ...product,
+          quantity: 1,
+        },
+      ];
     }
 
-    const updatedCart = updateCartQuantity(
-      product.id,
-      currentQuantity - 1
+    localStorage.setItem(
+      "beePureCart",
+      JSON.stringify(updatedCart)
     );
 
-    setCart(updatedCart);
+    window.dispatchEvent(
+      new Event("cartUpdated")
+    );
   };
 
-  // =========================================
-  // CATEGORY CHANGE
-  // =========================================
 
-  const handleCategoryChange = (category) => {
-    setSelectedCategory(category);
+  /* =========================================
+     CLEAR FILTERS
+  ========================================== */
 
-    // Always start at the product section
-    // when changing category.
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+  const clearFilters = () => {
+    setSearchTerm("");
+    setSelectedCategory("");
+    setSelectedFarmer("");
+    setSortBy("newest");
   };
 
-  // =========================================
-  // BACK TO HOME
-  // =========================================
 
-  const handleBackToHome = () => {
-    window.scrollTo({
-      top: 0,
-      behavior: "auto",
-    });
-  };
+  /* =========================================
+     LOADING STATE
+  ========================================== */
+
+  if (loading) {
+    return (
+      <main className="shop-page">
+
+        <div className="shop-container">
+
+          <div className="shop-loading">
+            Loading products...
+          </div>
+
+        </div>
+
+      </main>
+    );
+  }
+
+
+  /* =========================================
+     ERROR STATE
+  ========================================== */
+
+  if (error) {
+    return (
+      <main className="shop-page">
+
+        <div className="shop-container">
+
+          <div className="shop-error">
+
+            <h2>
+              Unable to Load Products
+            </h2>
+
+            <p>
+              {error}
+            </p>
+
+            <button
+              type="button"
+              onClick={() =>
+                window.location.reload()
+              }
+            >
+              Try Again
+            </button>
+
+          </div>
+
+        </div>
+
+      </main>
+    );
+  }
+
+
+  /* =========================================
+     MAIN UI
+  ========================================== */
 
   return (
     <main className="shop-page">
 
-      {/* =========================================
-          SHOP HEADER
-      ========================================= */}
+      <div className="shop-container">
 
-      <section className="shop-header-section">
+        {/* ===================================
+            SHOP HEADER
+        ==================================== */}
 
-        <div className="shop-container">
+        <div className="shop-header">
 
-          <div className="shop-header">
+          <div>
 
             <p className="shop-eyebrow">
-              BEE PURE COLLECTION
+              BEE PURE
             </p>
 
             <h1>
-              Pure Products,
-              <br />
-              <span>Straight From Nature.</span>
+              Shop Our Products
             </h1>
 
-            <p className="shop-description">
-              Discover naturally good products sourced
-              directly from trusted local farmers.
+            <p>
+              Discover pure, natural and
+              organic products sourced
+              directly from farmers.
             </p>
 
           </div>
 
         </div>
 
-      </section>
 
+        {/* ===================================
+            SEARCH + FILTER BAR
+        ==================================== */}
 
-      {/* =========================================
-          PRODUCTS SECTION
-      ========================================= */}
+        <div className="shop-toolbar">
 
-      <section className="shop-products-section">
+          {/* SEARCH */}
 
-        <div className="shop-container">
+          <div className="shop-search">
 
-          {/* =========================================
-              CATEGORY FILTER
-          ========================================= */}
+            <Search size={18} />
 
-          <div className="shop-toolbar">
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={searchTerm}
+              onChange={(event) =>
+                setSearchTerm(
+                  event.target.value
+                )
+              }
+            />
 
-            <div className="shop-categories">
-
-              {/* ALL PRODUCTS */}
-
-              <button
-                type="button"
-                className={`shop-category ${
-                  selectedCategory === "All Products"
-                    ? "active"
-                    : ""
-                }`}
-                onClick={() =>
-                  handleCategoryChange("All Products")
-                }
-              >
-                All Products
-              </button>
-
-
-              {/* HONEY */}
+            {searchTerm && (
 
               <button
                 type="button"
-                className={`shop-category ${
-                  selectedCategory === "Honey"
-                    ? "active"
-                    : ""
-                }`}
                 onClick={() =>
-                  handleCategoryChange("Honey")
+                  setSearchTerm("")
                 }
+                aria-label="Clear search"
               >
-                Honey
+                <X size={16} />
               </button>
 
-
-              {/* NATURAL SWEETENERS */}
-
-              <button
-                type="button"
-                className={`shop-category ${
-                  selectedCategory ===
-                  "Natural Sweeteners"
-                    ? "active"
-                    : ""
-                }`}
-                onClick={() =>
-                  handleCategoryChange(
-                    "Natural Sweeteners"
-                  )
-                }
-              >
-                Natural Sweeteners
-              </button>
-
-
-              {/* HEALTHY FOODS */}
-
-              <button
-                type="button"
-                className={`shop-category ${
-                  selectedCategory ===
-                  "Healthy Foods"
-                    ? "active"
-                    : ""
-                }`}
-                onClick={() =>
-                  handleCategoryChange(
-                    "Healthy Foods"
-                  )
-                }
-              >
-                Healthy Foods
-              </button>
-
-
-              {/* WELLNESS */}
-
-              <button
-                type="button"
-                className={`shop-category ${
-                  selectedCategory === "Wellness"
-                    ? "active"
-                    : ""
-                }`}
-                onClick={() =>
-                  handleCategoryChange("Wellness")
-                }
-              >
-                Wellness
-              </button>
-
-            </div>
-
-
-            {/* PRODUCT COUNT */}
-
-            <p className="shop-product-count">
-
-              {filteredProducts.length}{" "}
-
-              {filteredProducts.length === 1
-                ? "product"
-                : "products"}
-
-            </p>
+            )}
 
           </div>
 
 
-          {/* =========================================
-              SEARCH RESULTS MESSAGE
-          ========================================= */}
+          {/* FILTER BUTTON */}
 
-          {searchQuery.trim() && (
+          <button
+            type="button"
+            className="shop-filter-button"
+            onClick={() =>
+              setShowFilters(
+                !showFilters
+              )
+            }
+          >
+            <SlidersHorizontal
+              size={18}
+            />
 
-            <div className="shop-search-result">
+            Filters
+          </button>
 
-              <p>
-                Search results for{" "}
 
-                <strong>
-                  "{searchQuery}"
-                </strong>
-              </p>
+          {/* SORT */}
+
+          <select
+            className="shop-sort"
+            value={sortBy}
+            onChange={(event) =>
+              setSortBy(
+                event.target.value
+              )
+            }
+          >
+
+            <option value="newest">
+              Newest
+            </option>
+
+            <option value="price-low">
+              Price: Low to High
+            </option>
+
+            <option value="price-high">
+              Price: High to Low
+            </option>
+
+            <option value="rating">
+              Top Rated
+            </option>
+
+            <option value="name">
+              Name
+            </option>
+
+          </select>
+
+        </div>
+
+
+        {/* ===================================
+            FILTER PANEL
+        ==================================== */}
+
+        {showFilters && (
+
+          <div className="shop-filter-panel">
+
+            {/* CATEGORY */}
+
+            <div className="shop-filter-group">
+
+              <label>
+                Category
+              </label>
+
+              <select
+                value={
+                  selectedCategory
+                }
+                onChange={(event) =>
+                  setSelectedCategory(
+                    event.target.value
+                  )
+                }
+              >
+
+                <option value="">
+                  All Categories
+                </option>
+
+                {categories.map(
+                  (category) => (
+
+                    <option
+                      key={category.id}
+                      value={category.id}
+                    >
+                      {category.name}
+                    </option>
+
+                  )
+                )}
+
+              </select>
 
             </div>
 
-          )}
 
+            {/* FARMER */}
 
-          {/* =========================================
-              SELECTED CATEGORY MESSAGE
-          ========================================= */}
+            <div className="shop-filter-group">
 
-          {selectedCategory !== "All Products" && (
-            <div className="shop-search-result">
+              <label>
+                Farmer
+              </label>
 
-              <p>
-                Showing products in{" "}
+              <select
+                value={
+                  selectedFarmer
+                }
+                onChange={(event) =>
+                  setSelectedFarmer(
+                    event.target.value
+                  )
+                }
+              >
 
-                <strong>
-                  {selectedCategory}
-                </strong>
-              </p>
+                <option value="">
+                  All Farmers
+                </option>
+
+                {farmers.map(
+                  (farmer) => (
+
+                    <option
+                      key={farmer.id}
+                      value={farmer.id}
+                    >
+                      {farmer.name}
+                    </option>
+
+                  )
+                )}
+
+              </select>
 
             </div>
-          )}
 
 
-          {/* =========================================
-              PRODUCT GRID
-          ========================================= */}
+            {/* CLEAR */}
 
-          {filteredProducts.length > 0 ? (
+            <button
+              type="button"
+              className="shop-clear-filters"
+              onClick={
+                clearFilters
+              }
+            >
+              Clear Filters
+            </button>
 
-            <div className="shop-product-grid">
+          </div>
 
-              {filteredProducts.map((product) => {
+        )}
 
-                const quantity =
-                  getProductQuantity(product.id);
 
-                const isAdded =
-                  addedProduct === product.id;
+        {/* ===================================
+            RESULT COUNT
+        ==================================== */}
 
-                return (
+        <div className="shop-results-info">
 
-                  <article
-                    className="shop-product-card"
-                    key={product.id}
+          <span>
+            {filteredProducts.length}{" "}
+            {filteredProducts.length ===
+            1
+              ? "product"
+              : "products"}
+          </span>
+
+        </div>
+
+
+        {/* ===================================
+            PRODUCT GRID
+        ==================================== */}
+
+        {filteredProducts.length >
+        0 ? (
+
+          <div className="shop-product-grid">
+
+            {filteredProducts.map(
+              (product) => (
+
+                <article
+                  className="shop-product-card"
+                  key={product.id}
+                >
+
+                  {/* PRODUCT IMAGE */}
+
+                  <Link
+                    to={`/product/${product.id}`}
+                    className="shop-product-image"
                   >
 
-                    {/* =================================
-                        PRODUCT IMAGE
-                    ================================= */}
-
-                    <Link
-                      to={`/product/${product.id}`}
-                      className="shop-product-image"
-                    >
+                    {product.image ? (
 
                       <img
                         src={product.image}
                         alt={product.name}
                         loading="lazy"
+                        onError={(event) => {
+                          console.error(
+                            "Shop image failed to load:",
+                            event
+                              .currentTarget
+                              .src
+                          );
+                        }}
                       />
 
-                      {product.oldPrice && (
+                    ) : (
 
-                        <span className="shop-sale-badge">
-                          SALE
-                        </span>
+                      <div className="shop-image-placeholder">
+                        No Image
+                      </div>
 
-                      )}
+                    )}
 
+                    {product.oldPrice && (
+
+                      <span className="shop-sale-badge">
+                        SALE
+                      </span>
+
+                    )}
+
+                  </Link>
+
+
+                  {/* PRODUCT CONTENT */}
+
+                  <div className="shop-product-content">
+
+                    <p className="shop-product-category">
+                      {product.category}
+                    </p>
+
+
+                    <Link
+                      to={`/product/${product.id}`}
+                      className="shop-product-name"
+                    >
+                      {product.name}
                     </Link>
 
 
-                    {/* =================================
-                        PRODUCT CONTENT
-                    ================================= */}
+                    {/* RATING */}
 
-                    <div className="shop-product-content">
+                    <div className="shop-product-rating">
 
-                      <p className="shop-product-category">
-                        {product.category}
-                      </p>
-
-
-                      <Link
-                        to={`/product/${product.id}`}
-                        className="shop-product-name"
-                      >
-                        {product.name}
-                      </Link>
-
-
-                      {/* =================================
-                          RATING
-                      ================================= */}
-
-                      <div className="shop-product-rating">
-
-                        <span className="stars">
-                          {"★".repeat(product.rating)}
-                        </span>
-
-                        <span>
-                          ({product.rating}.0)
-                        </span>
-
-                      </div>
-
-
-                      {/* =================================
-                          PRICE + CART
-                      ================================= */}
-
-                      <div className="shop-product-bottom">
-
-                        <div className="shop-price">
-
-                          <strong>
-                            ₹{product.price}
-                          </strong>
-
-                          {product.oldPrice && (
-
-                            <del>
-                              ₹{product.oldPrice}
-                            </del>
-
-                          )}
-
-                        </div>
-
-
-                        {/* =================================
-                            CART BUTTON
-                        ================================= */}
-
-                        {quantity === 0 ? (
-
-                          <button
-                            type="button"
-                            className={`shop-add-cart ${
-                              isAdded ? "added" : ""
-                            }`}
-                            onClick={() =>
-                              handleAddToCart(product)
-                            }
-                            aria-label={`Add ${product.name} to cart`}
-                          >
-
-                            {isAdded ? (
-
-                              <>
-                                <Check size={17} />
-
-                                <span>
-                                  Added
-                                </span>
-                              </>
-
-                            ) : (
-
-                              <>
-                                <ShoppingCart size={17} />
-
-                                <span>
-                                  Add to Cart
-                                </span>
-                              </>
-
-                            )}
-
-                          </button>
-
-                        ) : (
-
-                          <div
-                            className="shop-quantity-control"
-                            aria-label={`Quantity of ${product.name}`}
-                          >
-
-                            {/* DECREASE */}
-
-                            <button
-                              type="button"
-                              className="shop-quantity-btn"
-                              onClick={() =>
-                                handleDecrease(product)
-                              }
-                              aria-label={`Decrease ${product.name} quantity`}
-                            >
-                              <Minus size={15} />
-                            </button>
-
-
-                            {/* QUANTITY */}
-
-                            <span className="shop-quantity">
-                              {quantity}
-                            </span>
-
-
-                            {/* INCREASE */}
-
-                            <button
-                              type="button"
-                              className="shop-quantity-btn"
-                              onClick={() =>
-                                handleIncrease(product)
-                              }
-                              aria-label={`Increase ${product.name} quantity`}
-                            >
-                              <Plus size={15} />
-                            </button>
-
-                          </div>
-
+                      <span>
+                        {"★".repeat(
+                          product.rating
                         )}
+                      </span>
 
-                      </div>
+                      <small>
+                        {product.rating}
+                      </small>
 
                     </div>
 
-                  </article>
 
-                );
+                    {/* PRICE */}
 
-              })}
+                    <div className="shop-product-price">
 
-            </div>
+                      <strong>
+                        ₹{product.price}
+                      </strong>
 
-          ) : (
+                      {product.oldPrice && (
 
-            /* =========================================
-               NO RESULTS
-            ========================================= */
+                        <del>
+                          ₹
+                          {
+                            product.oldPrice
+                          }
+                        </del>
 
-            <div className="shop-no-results">
+                      )}
 
-              <h2>
-                No products found
-              </h2>
-
-              <p>
-
-                We couldn't find any products matching{" "}
-
-                <strong>
-                  "{searchQuery || selectedCategory}"
-                </strong>.
-
-              </p>
+                    </div>
 
 
-              <button
-                type="button"
-                className="shop-no-results-button"
-                onClick={() => {
-                  setSelectedCategory("All Products");
+                    {/* FARMER */}
 
-                  window.scrollTo({
-                    top: 0,
-                    behavior: "smooth",
-                  });
-                }}
-              >
-                View All Products
-              </button>
+                    {product.farmer && (
 
-            </div>
+                      <p className="shop-product-farmer">
+                        From{" "}
+                        {product.farmer}
+                      </p>
 
-          )}
+                    )}
 
 
-          {/* =========================================
-              BOTTOM MESSAGE
-          ========================================= */}
+                    {/* ADD TO CART */}
 
-          <div className="shop-bottom-message">
+                    <button
+                      type="button"
+                      className="shop-add-cart"
+                      onClick={() =>
+                        handleAddToCart(
+                          product
+                        )
+                      }
+                      disabled={
+                        product.stockQuantity <=
+                        0
+                      }
+                    >
 
-            <p>
-              More naturally good products are coming soon.
-            </p>
+                      <ShoppingCart
+                        size={17}
+                      />
 
+                      {product.stockQuantity <=
+                      0
+                        ? "Out of Stock"
+                        : "Add to Cart"}
 
-            <Link
-              to="/"
-              onClick={handleBackToHome}
-            >
-              Back to Home
+                    </button>
 
-              <ArrowRight size={16} />
+                  </div>
 
-            </Link>
+                </article>
+
+              )
+            )}
 
           </div>
 
-        </div>
+        ) : (
 
-      </section>
+          /* =================================
+             EMPTY STATE
+          ================================== */
+
+          <div className="shop-empty">
+
+            <h2>
+              No Products Found
+            </h2>
+
+            <p>
+              Try changing your search
+              or filters.
+            </p>
+
+            <button
+              type="button"
+              onClick={
+                clearFilters
+              }
+            >
+              Clear Filters
+            </button>
+
+          </div>
+
+        )}
+
+      </div>
 
     </main>
   );

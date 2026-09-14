@@ -16,15 +16,30 @@ import {
 import "../styles/Favorites.css";
 
 function Favorites() {
-  const [favorites, setFavorites] =
-    useState([]);
+  const [favorites, setFavorites] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   // =========================================
   // LOAD FAVORITES
   // =========================================
 
-  const loadFavorites = () => {
-    setFavorites(getFavorites());
+  const loadFavorites = async () => {
+    try {
+      setLoading(true);
+
+      const data = await getFavorites();
+
+      setFavorites(data);
+    } catch (error) {
+      console.error(
+        "Failed to load favorites:",
+        error
+      );
+
+      setFavorites([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -51,12 +66,49 @@ function Favorites() {
   // REMOVE FAVORITE
   // =========================================
 
-  const handleRemove = (productId) => {
-    const updatedFavorites =
-      removeFromFavorites(productId);
+  const handleRemove = async (productId) => {
+    const success =
+      await removeFromFavorites(productId);
 
-    setFavorites(updatedFavorites);
+    if (success) {
+      setFavorites((currentFavorites) =>
+        currentFavorites.filter(
+          (product) =>
+            String(product.id) !==
+            String(productId)
+        )
+      );
+    }
   };
+
+  // =========================================
+  // LOADING
+  // =========================================
+
+  if (loading) {
+    return (
+      <main className="favorites-page">
+
+        <div className="favorites-empty">
+
+          <div className="favorites-empty-icon">
+            <Heart size={34} />
+          </div>
+
+          <h1>
+            Loading Favorites...
+          </h1>
+
+          <p>
+            Please wait while we load your
+            saved products.
+          </p>
+
+        </div>
+
+      </main>
+    );
+  }
 
   // =========================================
   // EMPTY

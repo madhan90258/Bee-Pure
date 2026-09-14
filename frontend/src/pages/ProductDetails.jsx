@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+
 import {
   ShoppingCart,
   Minus,
@@ -13,173 +14,200 @@ import {
   Share2,
 } from "lucide-react";
 
+import { supabase } from "../lib/supabase";
+
+import {
+  isFavorite as checkFavorite,
+  addToFavorites,
+  removeFromFavorites,
+} from "../utils/favorites";
+
 import "../styles/ProductDetails.css";
+
+/* =========================================
+   SUPABASE STORAGE IMAGE URL
+========================================= */
+
+const getProductImageUrl = (storagePath) => {
+  if (!storagePath) {
+    return "";
+  }
+
+  // If it is already a complete URL
+  if (
+    storagePath.startsWith("http://") ||
+    storagePath.startsWith("https://")
+  ) {
+    return storagePath;
+  }
+
+  const { data } = supabase.storage
+    .from("product-images")
+    .getPublicUrl(storagePath);
+
+  return data?.publicUrl || "";
+};
+
+
+/* =========================================
+   PRODUCT DETAILS
+========================================= */
 
 function ProductDetails() {
   const { id } = useParams();
 
+  const [product, setProduct] = useState(null);
+
   const [quantity, setQuantity] = useState(1);
+
   const [isFavorite, setIsFavorite] = useState(false);
+
   const [shareMessage, setShareMessage] = useState("");
 
-  // =========================================
-  // GALLERY
-  // =========================================
+  const [loading, setLoading] = useState(true);
+
+  const [errorMessage, setErrorMessage] = useState("");
 
   const [activeMediaIndex, setActiveMediaIndex] =
     useState(0);
 
-  // =========================================
-  // PRODUCTS
-  // =========================================
+  const API_URL =
+    import.meta.env.VITE_API_URL ||
+    "http://localhost:5000";
 
-  const products = [
-    {
-      id: 1,
-      name: "Pure Forest Honey",
-      category: "Honey",
-      price: 499,
-      oldPrice: 599,
 
-      image: "/products/forest-honey.jpg",
+  /* =========================================
+     LOAD PRODUCT FROM BACKEND
+  ========================================= */
 
-      // Multiple images
-      images: [
-        "/products/forest-honey.jpg",
-        "/products/forest-honey-2.jpg",
-        "/products/forest-honey-3.jpg",
-      ],
+  useEffect(() => {
+    const loadProduct = async () => {
+      try {
+        setLoading(true);
+        setErrorMessage("");
+        setProduct(null);
 
-      // Videos
-      videos: [
-        // Add video path here when available
-        // "/products/forest-honey-video.mp4",
-      ],
+        const response = await fetch(
+          `${API_URL}/api/products/${encodeURIComponent(id)}`
+        );
 
-      rating: 5,
-      description:
-        "Pure forest honey collected naturally from trusted local beekeepers. Rich in natural goodness, flavour and nutrients.",
-    },
+        const result = await response.json();
 
-    {
-      id: 2,
-      name: "Raw Organic Honey",
-      category: "Honey",
-      price: 399,
-      oldPrice: null,
+        if (!response.ok || !result.success) {
+          throw new Error(
+            result.message ||
+              "Unable to fetch product"
+          );
+        }
 
-      image: "/products/raw-honey.jpg",
+        const backendProduct = result.product;
 
-      images: [
-        "/products/raw-honey.jpg",
-        "/products/raw-honey-2.jpg",
-        "/products/raw-honey-3.jpg",
-      ],
+        /* -------------------------------------
+           PRIMARY IMAGE
+        ------------------------------------- */
 
-      videos: [],
+        const primaryImage =
+          backendProduct.product_images?.find(
+            (image) => image.is_primary
+          ) ||
+          backendProduct.product_images?.[0];
 
-      rating: 5,
-      description:
-        "Naturally raw and minimally processed honey sourced directly from trusted farmers.",
-    },
+        /* -------------------------------------
+           ALL PRODUCT IMAGES
+        ------------------------------------- */
 
-    {
-      id: 3,
-      name: "Natural Jaggery",
-      category: "Natural Sweeteners",
-      price: 249,
-      oldPrice: 299,
+        const images =
+          backendProduct.product_images
+            ?.map((image) =>
+              getProductImageUrl(
+                image.storage_path
+              )
+            )
+            .filter(Boolean) || [];
 
-      image: "/products/jaggery.jpg",
+        /* -------------------------------------
+           MAP BACKEND PRODUCT
+        ------------------------------------- */
 
-      images: [
-        "/products/jaggery.jpg",
-        "/products/jaggery-2.jpg",
-      ],
+        const mappedProduct = {
+          id: backendProduct.id,
 
-      videos: [],
+          name: backendProduct.name,
 
-      rating: 4,
-      description:
-        "Traditional natural jaggery made with care and sourced directly from local producers.",
-    },
+          category:
+            backendProduct.categories?.name || "",
 
-    {
-      id: 4,
-      name: "Organic Turmeric",
-      category: "Healthy Foods",
-      price: 199,
-      oldPrice: null,
+          price:
+            Number(backendProduct.price) || 0,
 
-      image: "/products/turmeric.jpg",
+          oldPrice:
+            backendProduct.old_price !== null &&
+            backendProduct.old_price !== undefined
+              ? Number(
+                  backendProduct.old_price
+                )
+              : null,
 
-      images: [
-        "/products/turmeric.jpg",
-        "/products/turmeric-2.jpg",
-      ],
+          image: getProductImageUrl(
+            primaryImage?.storage_path
+          ),
 
-      videos: [],
+          images:
+            images.length > 0
+              ? images
+              : [
+                  getProductImageUrl(
+                    primaryImage?.storage_path
+                  ),
+                ],
 
-      rating: 5,
-      description:
-        "Naturally grown turmeric with rich colour, flavour and everyday wellness benefits.",
-    },
+          videos: [],
 
-    {
-      id: 5,
-      name: "Organic A2 Ghee",
-      category: "Healthy Foods",
-      price: 699,
-      oldPrice: 799,
+          rating:
+            Number(backendProduct.rating) || 0,
 
-      image: "/products/ghee.jpg",
+          description:
+            backendProduct.description || "",
 
-      images: [
-        "/products/ghee.jpg",
-        "/products/ghee-2.jpg",
-        "/products/ghee-3.jpg",
-      ],
+          stockQuantity:
+            Number(
+              backendProduct.stock_quantity
+            ) || 0,
 
-      videos: [],
+          slug:
+            backendProduct.slug || "",
 
-      rating: 5,
-      description:
-        "Traditional A2 ghee made from quality milk and prepared with care.",
-    },
+          farmer:
+            backendProduct.farmers || null,
+        };
 
-    {
-      id: 6,
-      name: "Forest Bee Honey",
-      category: "Honey",
-      price: 549,
-      oldPrice: null,
+        setProduct(mappedProduct);
+      } catch (error) {
+        console.error(
+          "Failed to load product:",
+          error
+        );
 
-      image: "/products/forest-bee-honey.jpg",
+        setProduct(null);
 
-      images: [
-        "/products/forest-bee-honey.jpg",
-        "/products/forest-bee-honey-2.jpg",
-      ],
+        setErrorMessage(
+          error.message ||
+            "Unable to load product"
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
 
-      videos: [],
+    if (id) {
+      loadProduct();
+    }
+  }, [API_URL, id]);
 
-      rating: 5,
-      description:
-        "Authentic forest honey with a naturally rich taste, sourced from local beekeepers.",
-    },
-  ];
 
-  // =========================================
-  // FIND PRODUCT
-  // =========================================
-
-  const product = products.find(
-    (item) => item.id === Number(id)
-  );
-
-  // =========================================
-  // BUILD PRODUCT MEDIA
-  // =========================================
+  /* =========================================
+     PRODUCT MEDIA
+  ========================================== */
 
   const productMedia = product
     ? [
@@ -188,12 +216,14 @@ function ProductDetails() {
               type: "image",
               url,
             }))
-          : [
+          : product.image
+          ? [
               {
                 type: "image",
                 url: product.image,
               },
-            ]),
+            ]
+          : []),
 
         ...(product.videos?.length
           ? product.videos.map((url) => ({
@@ -204,86 +234,124 @@ function ProductDetails() {
       ]
     : [];
 
-  // =========================================
-  // RESET GALLERY WHEN PRODUCT CHANGES
-  // =========================================
+
+  /* =========================================
+     RESET GALLERY
+  ========================================== */
 
   useEffect(() => {
     setActiveMediaIndex(0);
+    setQuantity(1);
   }, [id]);
 
-  // =========================================
-  // LOAD FAVORITE STATUS
-  // =========================================
+
+  /* =========================================
+     CHECK FAVORITE STATUS
+  ========================================== */
 
   useEffect(() => {
-    if (!product) {
-      return;
-    }
+    const loadFavoriteStatus = async () => {
+      if (!product?.id) {
+        return;
+      }
 
-    const savedFavorites =
-      JSON.parse(
-        localStorage.getItem("beePureFavorites")
-      ) || [];
+      try {
+        const favorite =
+          await checkFavorite(product.id);
 
-    const favorite = savedFavorites.some(
-      (favoriteProduct) =>
-        Number(favoriteProduct.id) === product.id
-    );
+        setIsFavorite(favorite);
+      } catch (error) {
+        console.error(
+          "Failed to load favorite status:",
+          error
+        );
 
-    setIsFavorite(favorite);
+        setIsFavorite(false);
+      }
+    };
+
+    loadFavoriteStatus();
   }, [product]);
 
-  // =========================================
-  // TOGGLE FAVORITE
-  // =========================================
 
-  const handleFavorite = () => {
+  /* =========================================
+     FAVORITES UPDATED EVENT
+  ========================================== */
+
+  useEffect(() => {
+    const handleFavoritesUpdate = async () => {
+      if (!product?.id) {
+        return;
+      }
+
+      try {
+        const favorite =
+          await checkFavorite(product.id);
+
+        setIsFavorite(favorite);
+      } catch (error) {
+        console.error(
+          "Failed to update favorite status:",
+          error
+        );
+      }
+    };
+
+    window.addEventListener(
+      "favoritesUpdated",
+      handleFavoritesUpdate
+    );
+
+    return () => {
+      window.removeEventListener(
+        "favoritesUpdated",
+        handleFavoritesUpdate
+      );
+    };
+  }, [product]);
+
+
+  /* =========================================
+     TOGGLE FAVORITE
+  ========================================== */
+
+  const handleFavorite = async () => {
     if (!product) {
       return;
     }
 
-    const savedFavorites =
-      JSON.parse(
-        localStorage.getItem("beePureFavorites")
-      ) || [];
+    try {
+      if (isFavorite) {
+        const success =
+          await removeFromFavorites(
+            product.id
+          );
 
-    const alreadyFavorite = savedFavorites.some(
-      (favoriteProduct) =>
-        Number(favoriteProduct.id) === product.id
-    );
+        if (success) {
+          setIsFavorite(false);
+        }
 
-    let updatedFavorites;
+        return;
+      }
 
-    if (alreadyFavorite) {
-      updatedFavorites = savedFavorites.filter(
-        (favoriteProduct) =>
-          Number(favoriteProduct.id) !== product.id
+      const success =
+        await addToFavorites(product);
+
+      if (success) {
+        setIsFavorite(true);
+      }
+    } catch (error) {
+      console.error(
+        "Failed to update favorite:",
+        error
       );
-
-      setIsFavorite(false);
-    } else {
-      updatedFavorites = [
-        ...savedFavorites,
-        product,
-      ];
-
-      setIsFavorite(true);
     }
-
-    localStorage.setItem(
-      "beePureFavorites",
-      JSON.stringify(updatedFavorites)
-    );
-
-    window.dispatchEvent(
-      new Event("favoritesUpdated")
-    );
   };
 
-  // =========================================
-  // SHARE PRODUCT
-  // =========================================
+
+  /* =========================================
+     SHARE PRODUCT
+  ========================================== */
 
   const handleShare = async () => {
     if (!product) {
@@ -297,14 +365,18 @@ function ProductDetails() {
       if (navigator.share) {
         await navigator.share({
           title: product.name,
+
           text: `Check out ${product.name} from Bee Pure.`,
+
           url: productUrl,
         });
 
         return;
       }
 
-      await navigator.clipboard.writeText(productUrl);
+      await navigator.clipboard.writeText(
+        productUrl
+      );
 
       setShareMessage(
         "Product link copied!"
@@ -314,13 +386,16 @@ function ProductDetails() {
         setShareMessage("");
       }, 2500);
     } catch (error) {
-      console.log("Share cancelled.");
+      console.log(
+        "Share cancelled."
+      );
     }
   };
 
-  // =========================================
-  // ADD TO CART
-  // =========================================
+
+  /* =========================================
+     ADD TO CART
+  ========================================== */
 
   const handleAddToCart = () => {
     if (!product) {
@@ -329,30 +404,39 @@ function ProductDetails() {
 
     const savedCart =
       JSON.parse(
-        localStorage.getItem("beePureCart")
+        localStorage.getItem(
+          "beePureCart"
+        )
       ) || [];
 
-    const existingProduct = savedCart.find(
-      (cartProduct) =>
-        Number(cartProduct.id) === product.id
-    );
+    const existingProduct =
+      savedCart.find(
+        (cartProduct) =>
+          String(cartProduct.id) ===
+          String(product.id)
+      );
 
     let updatedCart;
 
     if (existingProduct) {
-      updatedCart = savedCart.map(
-        (cartProduct) =>
-          Number(cartProduct.id) === product.id
-            ? {
-                ...cartProduct,
-                quantity:
-                  cartProduct.quantity + quantity,
-              }
-            : cartProduct
-      );
+      updatedCart =
+        savedCart.map(
+          (cartProduct) =>
+            String(cartProduct.id) ===
+            String(product.id)
+              ? {
+                  ...cartProduct,
+
+                  quantity:
+                    cartProduct.quantity +
+                    quantity,
+                }
+              : cartProduct
+        );
     } else {
       updatedCart = [
         ...savedCart,
+
         {
           ...product,
           quantity,
@@ -370,19 +454,22 @@ function ProductDetails() {
     );
   };
 
-  // =========================================
-  // BUY NOW
-  // =========================================
+
+  /* =========================================
+     BUY NOW
+  ========================================== */
 
   const handleBuyNow = () => {
     handleAddToCart();
 
-    window.location.href = "/checkout";
+    window.location.href =
+      "/checkout";
   };
 
-  // =========================================
-  // NEXT MEDIA
-  // =========================================
+
+  /* =========================================
+     NEXT MEDIA
+  ========================================== */
 
   const handleNextMedia = () => {
     if (productMedia.length <= 1) {
@@ -396,9 +483,10 @@ function ProductDetails() {
     );
   };
 
-  // =========================================
-  // PREVIOUS MEDIA
-  // =========================================
+
+  /* =========================================
+     PREVIOUS MEDIA
+  ========================================== */
 
   const handlePreviousMedia = () => {
     if (productMedia.length <= 1) {
@@ -407,30 +495,35 @@ function ProductDetails() {
 
     setActiveMediaIndex(
       (currentIndex) =>
-        (currentIndex - 1 + productMedia.length) %
+        (currentIndex -
+          1 +
+          productMedia.length) %
         productMedia.length
     );
   };
 
-  // =========================================
-  // SWIPE SUPPORT
-  // =========================================
+
+  /* =========================================
+     SWIPE SUPPORT
+  ========================================== */
 
   const handleTouchStart = (event) => {
     event.currentTarget.dataset.touchStartX =
       event.touches[0].clientX;
   };
 
+
   const handleTouchEnd = (event) => {
     const startX = Number(
       event.currentTarget.dataset.touchStartX
     );
 
-    const endX = event.changedTouches[0].clientX;
+    const endX =
+      event.changedTouches[0].clientX;
 
-    const difference = startX - endX;
+    const difference =
+      startX - endX;
 
-    // Minimum swipe distance
     if (Math.abs(difference) < 50) {
       return;
     }
@@ -442,43 +535,72 @@ function ProductDetails() {
     }
   };
 
-  // =========================================
-  // PRODUCT NOT FOUND
-  // =========================================
+
+  /* =========================================
+     LOADING
+  ========================================== */
+
+  if (loading) {
+    return (
+      <main className="product-not-found">
+        <h1>
+          Loading Product...
+        </h1>
+
+        <p>
+          Please wait while we load the
+          product.
+        </p>
+      </main>
+    );
+  }
+
+
+  /* =========================================
+     PRODUCT NOT FOUND
+  ========================================== */
 
   if (!product) {
     return (
       <main className="product-not-found">
-
         <h1>
           Product Not Found
         </h1>
 
         <p>
-          Sorry, we couldn't find the product
-          you're looking for.
+          {errorMessage ||
+            "Sorry, we couldn't find the product you're looking for."}
         </p>
 
         <Link to="/shop">
           <ArrowLeft size={16} />
           Back to Shop
         </Link>
-
       </main>
     );
   }
 
+
+  /* =========================================
+     ACTIVE MEDIA
+  ========================================== */
+
   const activeMedia =
     productMedia[activeMediaIndex];
+
+
+  /* =========================================
+     MAIN UI
+  ========================================== */
 
   return (
     <main className="product-details-page">
 
       <div className="product-details-container">
 
-        {/* =====================================
+        {/* ===================================
             BACK TO SHOP
-        ====================================== */}
+        ==================================== */}
 
         <Link
           to="/shop"
@@ -489,27 +611,32 @@ function ProductDetails() {
         </Link>
 
 
-        {/* =====================================
-            PRODUCT
-        ====================================== */}
+        {/* ===================================
+            PRODUCT DETAILS
+        ==================================== */}
 
         <section className="product-details">
 
-          {/* ===================================
-              PRODUCT MEDIA GALLERY
-          ==================================== */}
+          {/* =================================
+              PRODUCT GALLERY
+          ================================== */}
 
           <div className="product-gallery">
 
-            {/* MAIN MEDIA */}
+            {/* MAIN IMAGE / VIDEO */}
 
             <div
               className="product-details-image"
-              onTouchStart={handleTouchStart}
-              onTouchEnd={handleTouchEnd}
+              onTouchStart={
+                handleTouchStart
+              }
+              onTouchEnd={
+                handleTouchEnd
+              }
             >
 
-              {activeMedia?.type === "video" ? (
+              {activeMedia?.type ===
+              "video" ? (
 
                 <video
                   className="product-main-video"
@@ -522,8 +649,17 @@ function ProductDetails() {
               ) : (
 
                 <img
-                  src={activeMedia?.url || product.image}
+                  src={
+                    activeMedia?.url ||
+                    product.image
+                  }
                   alt={product.name}
+                  onError={(event) => {
+                    console.error(
+                      "Product image failed to load:",
+                      event.currentTarget.src
+                    );
+                  }}
                 />
 
               )}
@@ -538,45 +674,39 @@ function ProductDetails() {
               )}
 
 
-              {/* =================================
-                  PREVIOUS BUTTON
-              ================================== */}
+              {/* PREVIOUS */}
 
               {productMedia.length > 1 && (
-
                 <button
                   type="button"
                   className="product-gallery-arrow product-gallery-prev"
-                  onClick={handlePreviousMedia}
+                  onClick={
+                    handlePreviousMedia
+                  }
                   aria-label="Previous product media"
                 >
                   <ArrowLeft size={20} />
                 </button>
-
               )}
 
 
-              {/* =================================
-                  NEXT BUTTON
-              ================================== */}
+              {/* NEXT */}
 
               {productMedia.length > 1 && (
-
                 <button
                   type="button"
                   className="product-gallery-arrow product-gallery-next"
-                  onClick={handleNextMedia}
+                  onClick={
+                    handleNextMedia
+                  }
                   aria-label="Next product media"
                 >
                   <ArrowRight size={20} />
                 </button>
-
               )}
 
 
-              {/* =================================
-                  IMAGE ACTIONS
-              ================================== */}
+              {/* IMAGE ACTIONS */}
 
               <div className="product-image-actions">
 
@@ -587,7 +717,9 @@ function ProductDetails() {
                       ? "favorite-active"
                       : ""
                   }`}
-                  onClick={handleFavorite}
+                  onClick={
+                    handleFavorite
+                  }
                   aria-label={
                     isFavorite
                       ? "Remove from favorites"
@@ -608,7 +740,9 @@ function ProductDetails() {
                 <button
                   type="button"
                   className="product-icon-button"
-                  onClick={handleShare}
+                  onClick={
+                    handleShare
+                  }
                   aria-label="Share product"
                 >
                   <Share2 size={20} />
@@ -624,7 +758,6 @@ function ProductDetails() {
             ================================== */}
 
             {productMedia.length > 1 && (
-
               <div
                 className="product-media-thumbnails"
                 aria-label="Product media thumbnails"
@@ -643,19 +776,24 @@ function ProductDetails() {
                           : ""
                       }`}
                       onClick={() =>
-                        setActiveMediaIndex(index)
+                        setActiveMediaIndex(
+                          index
+                        )
                       }
                       aria-label={`View ${
                         media.type
                       } ${index + 1}`}
                     >
 
-                      {media.type === "video" ? (
+                      {media.type ===
+                      "video" ? (
 
                         <div className="product-video-thumbnail">
 
                           <video
-                            src={media.url}
+                            src={
+                              media.url
+                            }
                             muted
                             preload="metadata"
                           />
@@ -683,22 +821,25 @@ function ProductDetails() {
                 )}
 
               </div>
-
             )}
 
           </div>
 
 
-          {/* ===================================
+          {/* =================================
               PRODUCT INFORMATION
-          ==================================== */}
+          ================================== */}
 
           <div className="product-details-content">
+
+            {/* CATEGORY */}
 
             <p className="product-details-category">
               {product.category}
             </p>
 
+
+            {/* NAME */}
 
             <h1>
               {product.name}
@@ -710,7 +851,9 @@ function ProductDetails() {
             <div className="product-details-rating">
 
               <span>
-                {"★".repeat(product.rating)}
+                {"★".repeat(
+                  product.rating
+                )}
               </span>
 
               <small>
@@ -735,7 +878,6 @@ function ProductDetails() {
               )}
 
               {product.oldPrice && (
-
                 <span className="product-discount">
 
                   {Math.round(
@@ -749,7 +891,6 @@ function ProductDetails() {
                   % OFF
 
                 </span>
-
               )}
 
             </div>
@@ -762,9 +903,7 @@ function ProductDetails() {
             </p>
 
 
-            {/* =================================
-                QUANTITY
-            ================================== */}
+            {/* QUANTITY */}
 
             <div className="product-quantity">
 
@@ -812,25 +951,28 @@ function ProductDetails() {
             </div>
 
 
-            {/* =================================
-                ACTIONS
-            ================================== */}
+            {/* ACTION BUTTONS */}
 
             <div className="product-actions">
 
               <button
                 type="button"
                 className="product-add-cart"
-                onClick={handleAddToCart}
+                onClick={
+                  handleAddToCart
+                }
               >
                 <ShoppingCart size={18} />
                 Add to Cart
               </button>
 
+
               <button
                 type="button"
                 className="product-buy-now"
-                onClick={handleBuyNow}
+                onClick={
+                  handleBuyNow
+                }
               >
                 Buy Now
               </button>
@@ -841,16 +983,14 @@ function ProductDetails() {
             {/* SHARE MESSAGE */}
 
             {shareMessage && (
-
               <p className="product-share-message">
                 {shareMessage}
               </p>
-
             )}
 
 
             {/* =================================
-                BENEFITS
+                PRODUCT BENEFITS
             ================================== */}
 
             <div className="product-benefits">
