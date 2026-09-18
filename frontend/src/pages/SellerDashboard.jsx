@@ -14,160 +14,28 @@ import {
   Truck,
   XCircle,
   Eye,
+  Loader2,
 } from "lucide-react";
 
-import { Link } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+} from "react-router-dom";
+
+import { useEffect, useMemo, useState } from "react";
+
+import { supabase } from "../lib/supabase";
 
 import "../styles/SellerDashboard.css";
 
 
 // =====================================================
-// FRONTEND DEMO DATA
-// =====================================================
-// These values will later come from Supabase.
+// API CONFIG
 // =====================================================
 
-const dashboardStats = {
-  totalOrders: 128,
-  totalProducts: 24,
-  totalCategories: 8,
-  totalMessages: 17,
-  totalReviews: 86,
-  totalCoupons: 12,
-  totalSales: 184650,
-  pendingOrders: 14,
-};
-
-
-// =====================================================
-// SALES DATA
-// =====================================================
-
-const salesData = [
-  {
-    month: "Jan",
-    sales: 18500,
-  },
-  {
-    month: "Feb",
-    sales: 22400,
-  },
-  {
-    month: "Mar",
-    sales: 19800,
-  },
-  {
-    month: "Apr",
-    sales: 27600,
-  },
-  {
-    month: "May",
-    sales: 31200,
-  },
-  {
-    month: "Jun",
-    sales: 35800,
-  },
-];
-
-
-// =====================================================
-// ORDER STATUS DATA
-// =====================================================
-
-const orderStatusData = [
-  {
-    name: "Delivered",
-    value: 78,
-    className: "delivered",
-  },
-  {
-    name: "Processing",
-    value: 22,
-    className: "processing",
-  },
-  {
-    name: "Shipped",
-    value: 18,
-    className: "shipped",
-  },
-  {
-    name: "Cancelled",
-    value: 10,
-    className: "cancelled",
-  },
-];
-
-
-// =====================================================
-// PRODUCT PERFORMANCE
-// =====================================================
-
-const productPerformance = [
-  {
-    name: "Forest Honey",
-    sales: 82,
-  },
-  {
-    name: "Wildflower Honey",
-    sales: 69,
-  },
-  {
-    name: "Organic Turmeric",
-    sales: 57,
-  },
-  {
-    name: "Raw Peanut",
-    sales: 45,
-  },
-  {
-    name: "Farm Ghee",
-    sales: 38,
-  },
-];
-
-
-// =====================================================
-// RECENT ORDERS
-// =====================================================
-
-const recentOrders = [
-  {
-    id: "#BP-1028",
-    customer: "Arun Kumar",
-    product: "Forest Honey",
-    amount: 899,
-    status: "Delivered",
-  },
-  {
-    id: "#BP-1027",
-    customer: "Priya Sharma",
-    product: "Organic Turmeric",
-    amount: 549,
-    status: "Processing",
-  },
-  {
-    id: "#BP-1026",
-    customer: "Rahul Verma",
-    product: "Wildflower Honey",
-    amount: 749,
-    status: "Shipped",
-  },
-  {
-    id: "#BP-1025",
-    customer: "Anjali R",
-    product: "Farm Ghee",
-    amount: 1299,
-    status: "Delivered",
-  },
-  {
-    id: "#BP-1024",
-    customer: "Vikram Singh",
-    product: "Raw Peanut",
-    amount: 399,
-    status: "Cancelled",
-  },
-];
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
 
 
 // =====================================================
@@ -179,7 +47,31 @@ const formatCurrency = (value) => {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
-  }).format(value);
+  }).format(Number(value || 0));
+};
+
+
+const formatDate = (date) => {
+  if (!date) return "-";
+
+  return new Date(date).toLocaleDateString(
+    "en-IN",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }
+  );
+};
+
+
+const getStatusLabel = (status) => {
+  if (!status) return "Unknown";
+
+  return (
+    status.charAt(0).toUpperCase() +
+    status.slice(1)
+  );
 };
 
 
@@ -188,12 +80,150 @@ const formatCurrency = (value) => {
 // =====================================================
 
 function SellerDashboard() {
-  // -----------------------------------------------------
+  const navigate = useNavigate();
+
+  const [dashboard, setDashboard] =
+    useState(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+
+  // =====================================================
+  // FETCH DASHBOARD
+  // =====================================================
+
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const {
+          data: {
+            session,
+          },
+        } = await supabase.auth.getSession();
+
+        if (!session?.access_token) {
+          navigate("/login", {
+            replace: true,
+          });
+
+          return;
+        }
+
+        const response = await fetch(
+          `${API_URL}/api/seller/dashboard`,
+          {
+            method: "GET",
+
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+              "Content-Type":
+                "application/json",
+            },
+          }
+        );
+
+        const result =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            result?.message ||
+              "Unable to load seller dashboard."
+          );
+        }
+
+        if (!result?.success) {
+          throw new Error(
+            result?.message ||
+              "Unable to load seller dashboard."
+          );
+        }
+
+        setDashboard(
+          result.dashboard || {}
+        );
+      } catch (err) {
+        console.error(
+          "Seller dashboard error:",
+          err
+        );
+
+        setError(
+          err.message ||
+            "Unable to load dashboard."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboard();
+  }, [navigate]);
+
+
+  // =====================================================
+  // SAFE DATA
+  // =====================================================
+
+  const dashboardStats = useMemo(() => {
+    return {
+      totalOrders:
+        dashboard?.total_orders || 0,
+
+      totalProducts:
+        dashboard?.total_products || 0,
+
+      totalCategories: "-",
+
+      totalMessages: "-",
+
+      totalReviews: "-",
+
+      totalCoupons:
+        dashboard?.total_coupons || 0,
+
+      totalSales:
+        dashboard?.total_sales || 0,
+
+      pendingOrders:
+        dashboard?.pending_orders || 0,
+    };
+  }, [dashboard]);
+
+
+  const salesData =
+    dashboard?.sales_data || [];
+
+
+  const orderStatusData =
+    dashboard?.order_status_data || [];
+
+
+  const productPerformance =
+    dashboard?.product_performance || [];
+
+
+  const recentOrders =
+    dashboard?.recent_orders || [];
+
+
+  // =====================================================
   // SALES GRAPH CALCULATIONS
-  // -----------------------------------------------------
+  // =====================================================
 
   const maxSales = Math.max(
-    ...salesData.map((item) => item.sales)
+    ...salesData.map(
+      (item) =>
+        Number(item.sales || 0)
+    ),
+    1
   );
 
   const graphWidth = 720;
@@ -214,93 +244,212 @@ function SellerDashboard() {
     graphPaddingTop -
     graphPaddingBottom;
 
-  const salesPoints = salesData.map(
-    (item, index) => {
+  const salesPoints =
+    salesData.map(
+      (item, index) => {
+        const x =
+          salesData.length === 1
+            ? graphPaddingLeft +
+              usableWidth / 2
+            : graphPaddingLeft +
+              (index *
+                usableWidth) /
+                (salesData.length - 1);
 
-      const x =
-        graphPaddingLeft +
-        (index *
-          usableWidth) /
-          (salesData.length - 1);
+        const y =
+          graphPaddingTop +
+          usableHeight -
+          (Number(item.sales || 0) /
+            maxSales) *
+            usableHeight;
 
-      const y =
-        graphPaddingTop +
-        usableHeight -
-        (item.sales / maxSales) *
-          usableHeight;
+        return {
+          ...item,
+          x,
+          y,
+        };
+      }
+    );
 
-      return {
-        ...item,
-        x,
-        y,
-      };
-    }
-  );
 
-  const linePath = salesPoints
-    .map((point, index) => {
-      return `${index === 0 ? "M" : "L"} ${
-        point.x
-      } ${point.y}`;
-    })
-    .join(" ");
+  const linePath =
+    salesPoints.length > 0
+      ? salesPoints
+          .map(
+            (point, index) =>
+              `${
+                index === 0
+                  ? "M"
+                  : "L"
+              } ${point.x} ${point.y}`
+          )
+          .join(" ")
+      : "";
 
-  const areaPath = `
-    M ${salesPoints[0].x} ${graphHeight - graphPaddingBottom}
-    ${salesPoints
-      .map(
-        (point) =>
-          `L ${point.x} ${point.y}`
-      )
-      .join(" ")}
-    L ${
-      salesPoints[
-        salesPoints.length - 1
-      ].x
-    } ${graphHeight - graphPaddingBottom}
-    Z
-  `;
 
-  // -----------------------------------------------------
-  // ORDER STATUS TOTAL
-  // -----------------------------------------------------
+  const areaPath =
+    salesPoints.length > 0
+      ? `
+        M ${salesPoints[0].x}
+          ${
+            graphHeight -
+            graphPaddingBottom
+          }
+
+        ${salesPoints
+          .map(
+            (point) =>
+              `L ${point.x} ${point.y}`
+          )
+          .join(" ")}
+
+        L ${
+          salesPoints[
+            salesPoints.length - 1
+          ].x
+        }
+        ${
+          graphHeight -
+          graphPaddingBottom
+        }
+
+        Z
+      `
+      : "";
+
+
+  // =====================================================
+  // ORDER STATUS
+  // =====================================================
 
   const totalOrderStatuses =
     orderStatusData.reduce(
       (total, item) =>
-        total + item.value,
+        total +
+        Number(item.value || 0),
       0
     );
+
 
   let currentPercentage = 0;
 
   const pieSegments =
-    orderStatusData.map((item) => {
+    orderStatusData.map(
+      (item) => {
+        const percentage =
+          totalOrderStatuses > 0
+            ? (Number(
+                item.value || 0
+              ) /
+                totalOrderStatuses) *
+              100
+            : 0;
 
-      const percentage =
-        (item.value /
-          totalOrderStatuses) *
-        100;
+        const start =
+          currentPercentage;
 
-      const start =
-        currentPercentage;
+        const end =
+          currentPercentage +
+          percentage;
 
-      const end =
-        currentPercentage +
-        percentage;
+        currentPercentage = end;
 
-      currentPercentage = end;
+        return {
+          ...item,
+          start,
+          end,
+        };
+      }
+    );
 
-      return {
-        ...item,
-        start,
-        end,
-      };
-    });
 
-  // -----------------------------------------------------
+  // =====================================================
+  // PRODUCT PERFORMANCE MAX
+  // =====================================================
+
+  const maxProductSales =
+    Math.max(
+      ...productPerformance.map(
+        (product) =>
+          Number(
+            product.units_sold || 0
+          )
+      ),
+      1
+    );
+
+
+  // =====================================================
+  // LOADING
+  // =====================================================
+
+  if (loading) {
+    return (
+      <main className="seller-dashboard-page">
+
+        <div className="seller-dashboard-container">
+
+          <div className="seller-dashboard-loading">
+
+            <Loader2
+              size={28}
+              className="seller-dashboard-spinner"
+            />
+
+            <p>
+              Loading seller dashboard...
+            </p>
+
+          </div>
+
+        </div>
+
+      </main>
+    );
+  }
+
+
+  // =====================================================
+  // ERROR
+  // =====================================================
+
+  if (error) {
+    return (
+      <main className="seller-dashboard-page">
+
+        <div className="seller-dashboard-container">
+
+          <div className="seller-dashboard-error">
+
+            <h2>
+              Unable to load dashboard
+            </h2>
+
+            <p>
+              {error}
+            </p>
+
+            <button
+              type="button"
+              onClick={() =>
+                window.location.reload()
+              }
+            >
+              Try Again
+            </button>
+
+          </div>
+
+        </div>
+
+      </main>
+    );
+  }
+
+
+  // =====================================================
   // PAGE
-  // -----------------------------------------------------
+  // =====================================================
 
   return (
     <main className="seller-dashboard-page">
@@ -330,8 +479,6 @@ function SellerDashboard() {
 
           </div>
 
-
-          {/* BACK TO ACCOUNT */}
 
           <Link
             to="/seller/account"
@@ -373,9 +520,8 @@ function SellerDashboard() {
                 {dashboardStats.totalOrders}
               </strong>
 
-              <small className="stat-positive">
-                <TrendingUp size={12} />
-                12.5% this month
+              <small>
+                Seller orders
               </small>
 
             </div>
@@ -402,7 +548,7 @@ function SellerDashboard() {
               </strong>
 
               <small>
-                Active products
+                {dashboard?.active_products || 0} active products
               </small>
 
             </div>
@@ -429,7 +575,7 @@ function SellerDashboard() {
               </strong>
 
               <small>
-                Product categories
+                Category management
               </small>
 
             </div>
@@ -456,7 +602,7 @@ function SellerDashboard() {
               </strong>
 
               <small>
-                Customer messages
+                Coming with Messages API
               </small>
 
             </div>
@@ -483,7 +629,7 @@ function SellerDashboard() {
               </strong>
 
               <small>
-                Customer reviews
+                Coming with Reviews API
               </small>
 
             </div>
@@ -510,7 +656,7 @@ function SellerDashboard() {
               </strong>
 
               <small>
-                Available coupons
+                Seller coupons
               </small>
 
             </div>
@@ -538,9 +684,8 @@ function SellerDashboard() {
                 )}
               </strong>
 
-              <small className="stat-positive">
-                <TrendingUp size={12} />
-                18.4% this month
+              <small>
+                Paid seller sales
               </small>
 
             </div>
@@ -616,7 +761,7 @@ function SellerDashboard() {
                 </strong>
 
                 <small>
-                  Total sales
+                  Total paid sales
                 </small>
 
               </div>
@@ -626,106 +771,116 @@ function SellerDashboard() {
 
             <div className="seller-line-chart">
 
-              <svg
-                viewBox={`0 0 ${graphWidth} ${graphHeight}`}
-                preserveAspectRatio="none"
-                className="seller-line-chart-svg"
-              >
+              {salesPoints.length === 0 ? (
+                <div className="seller-dashboard-empty-chart">
+                  No sales data available yet.
+                </div>
+              ) : (
+                <>
+                  <svg
+                    viewBox={`0 0 ${graphWidth} ${graphHeight}`}
+                    preserveAspectRatio="none"
+                    className="seller-line-chart-svg"
+                  >
 
-                {/* GRID */}
+                    {/* GRID */}
 
-                <line
-                  x1={graphPaddingLeft}
-                  y1={graphPaddingTop}
-                  x2={
-                    graphWidth -
-                    graphPaddingRight
-                  }
-                  y2={graphPaddingTop}
-                  className="chart-grid-line"
-                />
-
-                <line
-                  x1={graphPaddingLeft}
-                  y1={
-                    graphPaddingTop +
-                    usableHeight / 2
-                  }
-                  x2={
-                    graphWidth -
-                    graphPaddingRight
-                  }
-                  y2={
-                    graphPaddingTop +
-                    usableHeight / 2
-                  }
-                  className="chart-grid-line"
-                />
-
-                <line
-                  x1={graphPaddingLeft}
-                  y1={
-                    graphHeight -
-                    graphPaddingBottom
-                  }
-                  x2={
-                    graphWidth -
-                    graphPaddingRight
-                  }
-                  y2={
-                    graphHeight -
-                    graphPaddingBottom
-                  }
-                  className="chart-grid-line"
-                />
-
-
-                {/* AREA */}
-
-                <path
-                  d={areaPath}
-                  className="sales-chart-area"
-                />
-
-
-                {/* LINE */}
-
-                <path
-                  d={linePath}
-                  className="sales-chart-line"
-                />
-
-
-                {/* POINTS */}
-
-                {salesPoints.map(
-                  (point) => (
-                    <circle
-                      key={point.month}
-                      cx={point.x}
-                      cy={point.y}
-                      r="5"
-                      className="sales-chart-point"
+                    <line
+                      x1={graphPaddingLeft}
+                      y1={graphPaddingTop}
+                      x2={
+                        graphWidth -
+                        graphPaddingRight
+                      }
+                      y2={graphPaddingTop}
+                      className="chart-grid-line"
                     />
-                  )
-                )}
 
-              </svg>
+                    <line
+                      x1={graphPaddingLeft}
+                      y1={
+                        graphPaddingTop +
+                        usableHeight / 2
+                      }
+                      x2={
+                        graphWidth -
+                        graphPaddingRight
+                      }
+                      y2={
+                        graphPaddingTop +
+                        usableHeight / 2
+                      }
+                      className="chart-grid-line"
+                    />
+
+                    <line
+                      x1={graphPaddingLeft}
+                      y1={
+                        graphHeight -
+                        graphPaddingBottom
+                      }
+                      x2={
+                        graphWidth -
+                        graphPaddingRight
+                      }
+                      y2={
+                        graphHeight -
+                        graphPaddingBottom
+                      }
+                      className="chart-grid-line"
+                    />
 
 
-              {/* X AXIS */}
+                    {/* AREA */}
 
-              <div className="seller-chart-months">
+                    <path
+                      d={areaPath}
+                      className="sales-chart-area"
+                    />
 
-                {salesData.map(
-                  (item) => (
-                    <span key={item.month}>
-                      {item.month}
-                    </span>
-                  )
-                )}
 
-              </div>
+                    {/* LINE */}
+
+                    <path
+                      d={linePath}
+                      className="sales-chart-line"
+                    />
+
+
+                    {/* POINTS */}
+
+                    {salesPoints.map(
+                      (point) => (
+                        <circle
+                          key={point.month}
+                          cx={point.x}
+                          cy={point.y}
+                          r="5"
+                          className="sales-chart-point"
+                        />
+                      )
+                    )}
+
+                  </svg>
+
+
+                  {/* X AXIS */}
+
+                  <div className="seller-chart-months">
+
+                    {salesData.map(
+                      (item) => (
+                        <span
+                          key={item.month}
+                        >
+                          {item.month}
+                        </span>
+                      )
+                    )}
+
+                  </div>
+                </>
+              )}
 
             </div>
 
@@ -751,7 +906,7 @@ function SellerDashboard() {
                 </h2>
 
                 <p>
-                  Current order distribution
+                  Current paid order distribution
                 </p>
 
               </div>
@@ -764,15 +919,20 @@ function SellerDashboard() {
               <div
                 className="seller-pie-chart"
                 style={{
-                  background: `conic-gradient(
-                    from 0deg,
-                    ${pieSegments
-                      .map(
-                        (segment) =>
-                          `var(--chart-${segment.className}) ${segment.start}% ${segment.end}%`
-                      )
-                      .join(", ")}
-                  )`,
+                  background:
+                    totalOrderStatuses > 0
+                      ? `conic-gradient(
+                          from 0deg,
+                          ${pieSegments
+                            .map(
+                              (
+                                segment
+                              ) =>
+                                `var(--chart-${segment.className}) ${segment.start}% ${segment.end}%`
+                            )
+                            .join(", ")}
+                        )`
+                      : "var(--chart-empty)",
                 }}
               >
 
@@ -807,7 +967,9 @@ function SellerDashboard() {
                         />
 
                         <span>
-                          {item.name}
+                          {getStatusLabel(
+                            item.name
+                          )}
                         </span>
 
                       </div>
@@ -871,45 +1033,57 @@ function SellerDashboard() {
 
             <div className="seller-bar-chart">
 
-              {productPerformance.map(
-                (product, index) => {
+              {productPerformance.length === 0 ? (
+                <div className="seller-dashboard-empty">
+                  No product sales yet.
+                </div>
+              ) : (
+                productPerformance.map(
+                  (product) => {
 
-                  const percentage =
-                    (product.sales / 82) *
-                    100;
+                    const percentage =
+                      (Number(
+                        product.units_sold ||
+                          0
+                      ) /
+                        maxProductSales) *
+                      100;
 
-                  return (
-                    <div
-                      className="seller-bar-item"
-                      key={product.name}
-                    >
+                    return (
+                      <div
+                        className="seller-bar-item"
+                        key={
+                          product.product_id
+                        }
+                      >
 
-                      <div className="seller-bar-label">
+                        <div className="seller-bar-label">
 
-                        <span>
-                          {product.name}
-                        </span>
+                          <span>
+                            {product.name}
+                          </span>
 
-                        <strong>
-                          {product.sales}
-                        </strong>
+                          <strong>
+                            {product.units_sold}
+                          </strong>
+
+                        </div>
+
+                        <div className="seller-bar-track">
+
+                          <div
+                            className="seller-bar-fill"
+                            style={{
+                              width: `${percentage}%`,
+                            }}
+                          />
+
+                        </div>
 
                       </div>
-
-                      <div className="seller-bar-track">
-
-                        <div
-                          className="seller-bar-fill"
-                          style={{
-                            width: `${percentage}%`,
-                          }}
-                        />
-
-                      </div>
-
-                    </div>
-                  );
-                }
+                    );
+                  }
+                )
               )}
 
             </div>
@@ -946,55 +1120,7 @@ function SellerDashboard() {
 
             <div className="seller-activity-list">
 
-              <div className="seller-activity-item">
-
-                <div className="seller-activity-icon">
-                  <Users size={18} />
-                </div>
-
-                <div>
-
-                  <strong>
-                    Customer Messages
-                  </strong>
-
-                  <span>
-                    {dashboardStats.totalMessages} messages waiting
-                  </span>
-
-                </div>
-
-                <Link to="/seller/messages">
-                  <Eye size={17} />
-                </Link>
-
-              </div>
-
-
-              <div className="seller-activity-item">
-
-                <div className="seller-activity-icon">
-                  <Star size={18} />
-                </div>
-
-                <div>
-
-                  <strong>
-                    Customer Reviews
-                  </strong>
-
-                  <span>
-                    {dashboardStats.totalReviews} reviews received
-                  </span>
-
-                </div>
-
-                <Link to="/seller/reviews">
-                  <Eye size={17} />
-                </Link>
-
-              </div>
-
+              {/* PRODUCTS */}
 
               <div className="seller-activity-item">
 
@@ -1009,7 +1135,8 @@ function SellerDashboard() {
                   </strong>
 
                   <span>
-                    {dashboardStats.totalProducts} products listed
+                    {dashboardStats.totalProducts}{" "}
+                    products listed
                   </span>
 
                 </div>
@@ -1021,25 +1148,85 @@ function SellerDashboard() {
               </div>
 
 
+              {/* LOW STOCK */}
+
               <div className="seller-activity-item">
 
                 <div className="seller-activity-icon">
-                  <FolderTree size={18} />
+                  <Clock3 size={18} />
                 </div>
 
                 <div>
 
                   <strong>
-                    Categories
+                    Low Stock
                   </strong>
 
                   <span>
-                    {dashboardStats.totalCategories} categories active
+                    {dashboard?.low_stock_count ||
+                      0}{" "}
+                    products need attention
                   </span>
 
                 </div>
 
-                <Link to="/seller/categories">
+                <Link to="/seller/products">
+                  <Eye size={17} />
+                </Link>
+
+              </div>
+
+
+              {/* COUPONS */}
+
+              <div className="seller-activity-item">
+
+                <div className="seller-activity-icon">
+                  <TicketPercent size={18} />
+                </div>
+
+                <div>
+
+                  <strong>
+                    Coupons
+                  </strong>
+
+                  <span>
+                    {dashboardStats.totalCoupons}{" "}
+                    seller coupons
+                  </span>
+
+                </div>
+
+                <Link to="/seller/coupons">
+                  <Eye size={17} />
+                </Link>
+
+              </div>
+
+
+              {/* ORDERS */}
+
+              <div className="seller-activity-item">
+
+                <div className="seller-activity-icon">
+                  <ShoppingBag size={18} />
+                </div>
+
+                <div>
+
+                  <strong>
+                    Pending Orders
+                  </strong>
+
+                  <span>
+                    {dashboardStats.pendingOrders}{" "}
+                    orders waiting
+                  </span>
+
+                </div>
+
+                <Link to="/seller/orders">
                   <Eye size={17} />
                 </Link>
 
@@ -1071,7 +1258,7 @@ function SellerDashboard() {
               </h2>
 
               <p>
-                Latest customer orders
+                Latest paid customer orders
               </p>
 
             </div>
@@ -1088,109 +1275,161 @@ function SellerDashboard() {
 
           <div className="seller-orders-table-wrapper">
 
-            <table className="seller-orders-table">
+            {recentOrders.length === 0 ? (
+              <div className="seller-dashboard-empty">
+                No orders available yet.
+              </div>
+            ) : (
+              <table className="seller-orders-table">
 
-              <thead>
+                <thead>
 
-                <tr>
+                  <tr>
 
-                  <th>
-                    Order
-                  </th>
+                    <th>
+                      Order
+                    </th>
 
-                  <th>
-                    Customer
-                  </th>
+                    <th>
+                      Customer
+                    </th>
 
-                  <th>
-                    Product
-                  </th>
+                    <th>
+                      Product
+                    </th>
 
-                  <th>
-                    Amount
-                  </th>
+                    <th>
+                      Amount
+                    </th>
 
-                  <th>
-                    Status
-                  </th>
+                    <th>
+                      Status
+                    </th>
 
-                </tr>
+                  </tr>
 
-              </thead>
+                </thead>
 
 
-              <tbody>
+                <tbody>
 
-                {recentOrders.map(
-                  (order) => (
-                    <tr key={order.id}>
+                  {recentOrders.map(
+                    (order) => {
 
-                      <td>
-                        <strong>
-                          {order.id}
-                        </strong>
-                      </td>
+                      const status =
+                        order.status ||
+                        "";
 
-                      <td>
-                        {order.customer}
-                      </td>
+                      const statusClass =
+                        status
+                          .toLowerCase()
+                          .replace(
+                            /\s+/g,
+                            "-"
+                          );
 
-                      <td>
-                        {order.product}
-                      </td>
-
-                      <td>
-                        <strong>
-                          {formatCurrency(
-                            order.amount
-                          )}
-                        </strong>
-                      </td>
-
-                      <td>
-
-                        <span
-                          className={`seller-order-status-badge ${order.status
-                            .toLowerCase()
-                            .replace(
-                              " ",
-                              "-"
-                            )}`}
+                      return (
+                        <tr
+                          key={
+                            order.id
+                          }
                         >
 
-                          {order.status ===
-                            "Delivered" && (
-                            <CheckCircle size={13} />
-                          )}
+                          <td>
 
-                          {order.status ===
-                            "Processing" && (
-                            <Clock3 size={13} />
-                          )}
+                            <strong>
+                              {order.order_number ||
+                                order.id}
+                            </strong>
 
-                          {order.status ===
-                            "Shipped" && (
-                            <Truck size={13} />
-                          )}
+                            <small
+                              className="seller-order-date"
+                            >
+                              {formatDate(
+                                order.created_at
+                              )}
+                            </small>
 
-                          {order.status ===
-                            "Cancelled" && (
-                            <XCircle size={13} />
-                          )}
+                          </td>
 
-                          {order.status}
+                          <td>
+                            {order.customer ||
+                              "Customer"}
+                          </td>
 
-                        </span>
+                          <td>
+                            {order.product ||
+                              "-"}
+                          </td>
 
-                      </td>
+                          <td>
 
-                    </tr>
-                  )
-                )}
+                            <strong>
+                              {formatCurrency(
+                                order.amount
+                              )}
+                            </strong>
 
-              </tbody>
+                          </td>
 
-            </table>
+                          <td>
+
+                            <span
+                              className={`seller-order-status-badge ${statusClass}`}
+                            >
+
+                              {status ===
+                                "delivered" && (
+                                <CheckCircle
+                                  size={13}
+                                />
+                              )}
+
+                              {status ===
+                                "processing" && (
+                                <Clock3
+                                  size={13}
+                                />
+                              )}
+
+                              {status ===
+                                "shipped" && (
+                                <Truck
+                                  size={13}
+                                />
+                              )}
+
+                              {status ===
+                                "cancelled" && (
+                                <XCircle
+                                  size={13}
+                                />
+                              )}
+
+                              {status ===
+                                "pending" && (
+                                <Clock3
+                                  size={13}
+                                />
+                              )}
+
+                              {getStatusLabel(
+                                status
+                              )}
+
+                            </span>
+
+                          </td>
+
+                        </tr>
+                      );
+                    }
+                  )}
+
+                </tbody>
+
+              </table>
+            )}
 
           </div>
 

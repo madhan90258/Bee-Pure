@@ -6,77 +6,131 @@ import {
   Clock,
   Send,
   MessageCircle,
+  Loader2,
 } from "lucide-react";
 
 import "../styles/Contact.css";
 
-function Contact() {
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    subject: "",
-    message: "",
-  });
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
 
-  const [errors, setErrors] = useState({});
-  const [submitted, setSubmitted] = useState(false);
+const emptyForm = {
+  name: "",
+  email: "",
+  phone: "",
+  subject: "",
+  message: "",
+};
+
+function Contact() {
+  const [formData, setFormData] =
+    useState(emptyForm);
+
+  const [errors, setErrors] =
+    useState({});
+
+  const [submitted, setSubmitted] =
+    useState(false);
+
+  const [submitting, setSubmitting] =
+    useState(false);
+
+  const [submitError, setSubmitError] =
+    useState("");
+
 
   // =========================================
   // VALIDATE INDIVIDUAL FIELD
   // =========================================
 
-  const validateField = (name, value) => {
+  const validateField = (
+    name,
+    value
+  ) => {
     let error = "";
 
     switch (name) {
       case "name":
         if (!value.trim()) {
-          error = "Please enter your name.";
-        } else if (!/^[A-Za-z\s.'-]+$/.test(value.trim())) {
-          error = "Name can contain only letters and spaces.";
-        } else if (value.trim().length < 2) {
-          error = "Name must be at least 2 characters.";
-        } else if (value.trim().length > 50) {
-          error = "Name must be less than 50 characters.";
+          error =
+            "Please enter your name.";
+        } else if (
+          !/^[A-Za-z\s.'-]+$/.test(
+            value.trim()
+          )
+        ) {
+          error =
+            "Name can contain only letters and spaces.";
+        } else if (
+          value.trim().length < 2
+        ) {
+          error =
+            "Name must be at least 2 characters.";
+        } else if (
+          value.trim().length > 50
+        ) {
+          error =
+            "Name must be less than 50 characters.";
         }
         break;
 
       case "email":
         if (!value.trim()) {
-          error = "Please enter your email address.";
+          error =
+            "Please enter your email address.";
         } else if (
-          !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim())
+          !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(
+            value.trim()
+          )
         ) {
-          error = "Please enter a valid email address.";
+          error =
+            "Please enter a valid email address.";
         }
         break;
 
       case "phone":
         if (value.trim()) {
-          const cleanPhone = value.replace(/\D/g, "");
+          const cleanPhone =
+            value.replace(/\D/g, "");
 
-          if (cleanPhone.length !== 10) {
-            error = "Phone number must contain 10 digits.";
-          } else if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-            error = "Please enter a valid Indian mobile number.";
+          if (
+            cleanPhone.length !== 10
+          ) {
+            error =
+              "Phone number must contain 10 digits.";
+          } else if (
+            !/^[6-9]\d{9}$/.test(
+              cleanPhone
+            )
+          ) {
+            error =
+              "Please enter a valid Indian mobile number.";
           }
         }
         break;
 
       case "subject":
         if (!value) {
-          error = "Please select a subject.";
+          error =
+            "Please select a subject.";
         }
         break;
 
       case "message":
         if (!value.trim()) {
-          error = "Please enter your message.";
-        } else if (value.trim().length < 10) {
-          error = "Message must be at least 10 characters.";
-        } else if (value.trim().length > 1000) {
-          error = "Message must be less than 1000 characters.";
+          error =
+            "Please enter your message.";
+        } else if (
+          value.trim().length < 10
+        ) {
+          error =
+            "Message must be at least 10 characters.";
+        } else if (
+          value.trim().length > 1000
+        ) {
+          error =
+            "Message must be less than 1000 characters.";
         }
         break;
 
@@ -87,6 +141,7 @@ function Contact() {
     return error;
   };
 
+
   // =========================================
   // VALIDATE ENTIRE FORM
   // =========================================
@@ -94,84 +149,189 @@ function Contact() {
   const validateForm = () => {
     const newErrors = {};
 
-    Object.keys(formData).forEach((field) => {
-      const error = validateField(field, formData[field]);
+    Object.keys(formData).forEach(
+      (field) => {
+        const error =
+          validateField(
+            field,
+            formData[field]
+          );
 
-      if (error) {
-        newErrors[field] = error;
+        if (error) {
+          newErrors[field] =
+            error;
+        }
       }
-    });
+    );
 
     setErrors(newErrors);
 
-    return Object.keys(newErrors).length === 0;
+    return (
+      Object.keys(newErrors)
+        .length === 0
+    );
   };
+
 
   // =========================================
   // HANDLE INPUT CHANGE
   // =========================================
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
+  const handleChange = (
+    event
+  ) => {
+    const {
+      name,
+      value,
+    } = event.target;
 
-    setFormData((current) => ({
-      ...current,
-      [name]: value,
-    }));
+    setFormData(
+      (current) => ({
+        ...current,
+        [name]: value,
+      })
+    );
 
-    // Remove error as user starts correcting field
-    setErrors((current) => ({
-      ...current,
-      [name]: "",
-    }));
+    setErrors(
+      (current) => ({
+        ...current,
+        [name]: "",
+      })
+    );
 
     setSubmitted(false);
+    setSubmitError("");
   };
+
 
   // =========================================
   // HANDLE FIELD BLUR
   // =========================================
 
-  const handleBlur = (event) => {
-    const { name, value } = event.target;
+  const handleBlur = (
+    event
+  ) => {
+    const {
+      name,
+      value,
+    } = event.target;
 
-    const error = validateField(name, value);
+    const error =
+      validateField(
+        name,
+        value
+      );
 
-    setErrors((current) => ({
-      ...current,
-      [name]: error,
-    }));
+    setErrors(
+      (current) => ({
+        ...current,
+        [name]: error,
+      })
+    );
   };
+
 
   // =========================================
   // HANDLE FORM SUBMIT
   // =========================================
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (
+    event
+  ) => {
     event.preventDefault();
 
-    const isValid = validateForm();
+    setSubmitted(false);
+    setSubmitError("");
+
+    const isValid =
+      validateForm();
 
     if (!isValid) {
       return;
     }
 
-    setSubmitted(true);
+    try {
+      setSubmitting(true);
 
-    setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      subject: "",
-      message: "",
-    });
+      const response =
+        await fetch(
+          `${API_URL}/api/contact`,
+          {
+            method: "POST",
 
-    setErrors({});
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
 
-    setTimeout(() => {
-      setSubmitted(false);
-    }, 4000);
+            body: JSON.stringify({
+              name:
+                formData.name.trim(),
+
+              email:
+                formData.email
+                  .trim()
+                  .toLowerCase(),
+
+              phone:
+                formData.phone.trim() ||
+                null,
+
+              subject:
+                formData.subject ||
+                null,
+
+              message:
+                formData.message.trim(),
+            }),
+          }
+        );
+
+      const result =
+        await response.json();
+
+      if (
+        !response.ok ||
+        !result.success
+      ) {
+        throw new Error(
+          result.message ||
+            "Unable to send your message."
+        );
+      }
+
+      // ---------------------------------------
+      // SUCCESS
+      // ---------------------------------------
+
+      setSubmitted(true);
+
+      setFormData(
+        emptyForm
+      );
+
+      setErrors({});
+
+      setTimeout(() => {
+        setSubmitted(false);
+      }, 4000);
+
+    } catch (error) {
+      console.error(
+        "Contact form submission error:",
+        error
+      );
+
+      setSubmitError(
+        error.message ||
+          "Unable to send your message. Please try again."
+      );
+
+    } finally {
+      setSubmitting(false);
+    }
   };
+
 
   return (
     <main className="contact-page">
@@ -326,7 +486,7 @@ function Contact() {
               {/* WHATSAPP */}
 
               <a
-                href="https://wa.me/919999999999"
+                href="https://wa.me/919025872161"
                 className="contact-whatsapp"
                 target="_blank"
                 rel="noreferrer"
@@ -378,6 +538,31 @@ function Contact() {
               )}
 
 
+              {/* ERROR MESSAGE */}
+
+              {submitError && (
+                <div
+                  className="contact-success"
+                  style={{
+                    background: "#fff5f5",
+                    borderColor: "#e3b5b5",
+                  }}
+                >
+                  <strong
+                    style={{
+                      color: "#b42318",
+                    }}
+                  >
+                    Unable to send message
+                  </strong>
+
+                  <span>
+                    {submitError}
+                  </span>
+                </div>
+              )}
+
+
               <form
                 onSubmit={handleSubmit}
                 noValidate
@@ -403,12 +588,17 @@ function Contact() {
                     onBlur={handleBlur}
                     autoComplete="name"
                     maxLength="50"
+                    disabled={submitting}
                     className={
                       errors.name
                         ? "input-error"
                         : ""
                     }
-                    aria-invalid={Boolean(errors.name)}
+                    aria-invalid={
+                      Boolean(
+                        errors.name
+                      )
+                    }
                     aria-describedby={
                       errors.name
                         ? "name-error"
@@ -451,12 +641,17 @@ function Contact() {
                       onChange={handleChange}
                       onBlur={handleBlur}
                       autoComplete="email"
+                      disabled={submitting}
                       className={
                         errors.email
                           ? "input-error"
                           : ""
                       }
-                      aria-invalid={Boolean(errors.email)}
+                      aria-invalid={
+                        Boolean(
+                          errors.email
+                        )
+                      }
                       aria-describedby={
                         errors.email
                           ? "email-error"
@@ -495,12 +690,17 @@ function Contact() {
                       autoComplete="tel"
                       inputMode="numeric"
                       maxLength="10"
+                      disabled={submitting}
                       className={
                         errors.phone
                           ? "input-error"
                           : ""
+                    }
+                      aria-invalid={
+                        Boolean(
+                          errors.phone
+                        )
                       }
-                      aria-invalid={Boolean(errors.phone)}
                       aria-describedby={
                         errors.phone
                           ? "phone-error"
@@ -538,12 +738,17 @@ function Contact() {
                     value={formData.subject}
                     onChange={handleChange}
                     onBlur={handleBlur}
+                    disabled={submitting}
                     className={
                       errors.subject
                         ? "input-error"
                         : ""
                     }
-                    aria-invalid={Boolean(errors.subject)}
+                    aria-invalid={
+                      Boolean(
+                        errors.subject
+                      )
+                    }
                     aria-describedby={
                       errors.subject
                         ? "subject-error"
@@ -608,12 +813,17 @@ function Contact() {
                     onChange={handleChange}
                     onBlur={handleBlur}
                     maxLength="1000"
+                    disabled={submitting}
                     className={
                       errors.message
                         ? "input-error"
                         : ""
                     }
-                    aria-invalid={Boolean(errors.message)}
+                    aria-invalid={
+                      Boolean(
+                        errors.message
+                      )
+                    }
                     aria-describedby={
                       errors.message
                         ? "message-error"
@@ -650,11 +860,25 @@ function Contact() {
                 <button
                   type="submit"
                   className="contact-submit"
+                  disabled={submitting}
                 >
 
-                  <Send size={17} />
+                  {submitting ? (
+                    <>
+                      <Loader2
+                        size={17}
+                        className="contact-submit-spinner"
+                      />
 
-                  Send Message
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send size={17} />
+
+                      Send Message
+                    </>
+                  )}
 
                 </button>
 

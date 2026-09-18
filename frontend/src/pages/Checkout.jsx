@@ -10,33 +10,167 @@ import {
   ShoppingBag,
   ArrowLeft,
   Lock,
+  Plus,
+  CheckCircle,
+  Loader2,
+  Tag,
+  Trash2,
 } from "lucide-react";
 
-import { Link } from "react-router-dom";
-
 import {
-  getCart,
-  getCartTotal,
-} from "../utils/cart";
+  Link,
+  useNavigate,
+} from "react-router-dom";
+
+import { supabase } from "../lib/supabase";
 
 import "../styles/Checkout.css";
 
 
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
+
+
+/* =========================================
+   EMPTY ADDRESS FORM
+========================================= */
+
+const emptyAddressForm = {
+  fullName: "",
+  phone: "",
+  address: "",
+  addressLine2: "",
+  city: "",
+  state: "",
+  pincode: "",
+  latitude: null,
+  longitude: null,
+};
+
+
+/* =========================================
+   GET IMAGE URL
+========================================= */
+
+const getProductImageUrl = (
+  storagePath
+) => {
+  if (!storagePath) {
+    return "";
+  }
+
+  if (
+    storagePath.startsWith("http://") ||
+    storagePath.startsWith("https://")
+  ) {
+    return storagePath;
+  }
+
+  const {
+    data,
+  } = supabase.storage
+    .from("product-images")
+    .getPublicUrl(storagePath);
+
+  return data?.publicUrl || "";
+};
+
+
+/* =========================================
+   MAP BACKEND CART ITEM
+========================================= */
+
+const mapCartItem = (
+  item
+) => {
+  const product =
+    item.products;
+
+  if (!product) {
+    return null;
+  }
+
+  const primaryImage =
+    product.product_images?.find(
+      (image) =>
+        image.is_primary
+    ) ||
+    product.product_images?.[0];
+
+  return {
+    cartItemId:
+      item.id,
+
+    id:
+      product.id,
+
+    name:
+      product.name,
+
+    price:
+      Number(product.price) || 0,
+
+    quantity:
+      Number(item.quantity) || 1,
+
+    stockQuantity:
+      Number(
+        product.stock_quantity
+      ) || 0,
+
+    image:
+      getProductImageUrl(
+        primaryImage?.storage_path
+      ),
+  };
+};
+
+
+/* =========================================
+   CHECKOUT
+========================================= */
+
 function Checkout() {
+  const navigate =
+    useNavigate();
 
-  const [cart, setCart] = useState([]);
 
-  const [formData, setFormData] = useState({
-    fullName: "",
-    email: "",
-    phone: "",
-    address: "",
-    city: "",
-    state: "",
-    pincode: "",
-  });
+  /* =========================================
+     STATE
+  ========================================== */
 
-  const [errors, setErrors] = useState({});
+  const [cart, setCart] =
+    useState([]);
+
+  const [addresses, setAddresses] =
+    useState([]);
+
+  const [selectedAddressId, setSelectedAddressId] =
+    useState("");
+
+  const [showNewAddress, setShowNewAddress] =
+    useState(false);
+
+  const [addressForm, setAddressForm] =
+    useState(
+      emptyAddressForm
+    );
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [savingAddress, setSavingAddress] =
+    useState(false);
+
+  const [placingOrder, setPlacingOrder] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
+
+  const [addressError, setAddressError] =
+    useState("");
 
   const [locationLoading, setLocationLoading] =
     useState(false);
@@ -45,571 +179,967 @@ function Checkout() {
     useState("");
 
 
-  // =========================================
-  // LOAD CART
-  // =========================================
+  /* =========================================
+     COUPON
+  ========================================== */
+
+  const [couponCode, setCouponCode] =
+    useState("");
+
+  const [appliedCoupon, setAppliedCoupon] =
+    useState(null);
+
+  const [couponDiscount, setCouponDiscount] =
+    useState(0);
+
+  const [couponError, setCouponError] =
+    useState("");
+
+  const [couponLoading, setCouponLoading] =
+    useState(false);
+
+
+  /* =========================================
+     GET ACCESS TOKEN
+  ========================================== */
+
+  const getAccessToken =
+    async () => {
+      const {
+        data,
+        error,
+      } =
+        await supabase.auth.getSession();
+
+      if (error) {
+        throw new Error(
+          "Unable to verify your login."
+        );
+      }
+
+      const token =
+        data?.session?.access_token;
+
+      if (!token) {
+        navigate("/login");
+
+        throw new Error(
+          "Please login to continue."
+        );
+      }
+
+      return token;
+    };
+
+
+  /* =========================================
+     LOAD CART + ADDRESSES
+  ========================================== */
+
+  const loadCheckoutData =
+    async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const token =
+          await getAccessToken();
+
+
+        /* -------------------------------------
+           CART
+        ------------------------------------- */
+
+        const cartResponse =
+          await fetch(
+            `${API_URL}/api/cart`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+          );
+
+        const cartResult =
+          await cartResponse.json();
+
+        if (
+          !cartResponse.ok ||
+          !cartResult.success
+        ) {
+          throw new Error(
+            cartResult.message ||
+              "Unable to load your cart."
+          );
+        }
+
+        const mappedCart =
+          (cartResult.cart || [])
+            .map(mapCartItem)
+            .filter(Boolean);
+
+        setCart(mappedCart);
+
+
+        /* -------------------------------------
+           EMPTY CART
+        ------------------------------------- */
+
+        if (
+          mappedCart.length === 0
+        ) {
+          navigate("/cart");
+          return;
+        }
+
+
+        /* -------------------------------------
+           ADDRESSES
+        ------------------------------------- */
+
+        const addressResponse =
+          await fetch(
+            `${API_URL}/api/addresses`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+          );
+
+        const addressResult =
+          await addressResponse.json();
+
+        if (
+          !addressResponse.ok ||
+          !addressResult.success
+        ) {
+          throw new Error(
+            addressResult.message ||
+              "Unable to load addresses."
+          );
+        }
+
+        const customerAddresses =
+          addressResult.addresses ||
+          [];
+
+        setAddresses(
+          customerAddresses
+        );
+
+
+        /* -------------------------------------
+           SELECT DEFAULT ADDRESS
+        ------------------------------------- */
+
+        const defaultAddress =
+          customerAddresses.find(
+            (address) =>
+              address.is_default
+          );
+
+        if (defaultAddress) {
+          setSelectedAddressId(
+            defaultAddress.id
+          );
+        } else if (
+          customerAddresses.length > 0
+        ) {
+          setSelectedAddressId(
+            customerAddresses[0].id
+          );
+        } else {
+          setShowNewAddress(true);
+        }
+
+      } catch (err) {
+        console.error(
+          "Checkout loading error:",
+          err
+        );
+
+        if (
+          err.message?.toLowerCase()
+            .includes("login")
+        ) {
+          return;
+        }
+
+        setError(
+          err.message ||
+            "Unable to load checkout."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+
+  /* =========================================
+     INITIAL LOAD
+  ========================================== */
 
   useEffect(() => {
-    setCart(getCart());
+    loadCheckoutData();
   }, []);
 
 
-  // =========================================
-  // VALIDATE FIELD
-  // =========================================
-
-  const validateField = (name, value) => {
-
-    let error = "";
-
-    switch (name) {
-
-      // ---------------------------------------
-      // FULL NAME
-      // ---------------------------------------
-
-      case "fullName":
-
-        if (!value.trim()) {
-
-          error = "Please enter your full name.";
-
-        } else if (
-          !/^[A-Za-z\s.'-]+$/.test(value.trim())
-        ) {
-
-          error =
-            "Name can contain only letters and spaces.";
-
-        } else if (value.trim().length < 2) {
-
-          error =
-            "Name must be at least 2 characters.";
-
-        } else if (value.trim().length > 50) {
-
-          error =
-            "Name must be less than 50 characters.";
-
-        }
-
-        break;
-
-
-      // ---------------------------------------
-      // EMAIL
-      // ---------------------------------------
-
-      case "email":
-
-        if (!value.trim()) {
-
-          error =
-            "Please enter your email address.";
-
-        } else if (
-          !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(
-            value.trim()
-          )
-        ) {
-
-          error =
-            "Please enter a valid email address.";
-
-        }
-
-        break;
-
-
-      // ---------------------------------------
-      // PHONE
-      // ---------------------------------------
-
-      case "phone": {
-
-        const cleanPhone =
-          value.replace(/\D/g, "");
-
-        if (!value.trim()) {
-
-          error =
-            "Please enter your phone number.";
-
-        } else if (
-          !/^[6-9]\d{9}$/.test(cleanPhone)
-        ) {
-
-          error =
-            "Please enter a valid 10-digit Indian mobile number.";
-
-        }
-
-        break;
-      }
-
-
-      // ---------------------------------------
-      // ADDRESS
-      // ---------------------------------------
-
-      case "address":
-
-        if (!value.trim()) {
-
-          error =
-            "Please enter your complete address.";
-
-        } else if (value.trim().length < 10) {
-
-          error =
-            "Please enter a more complete address.";
-
-        } else if (value.trim().length > 250) {
-
-          error =
-            "Address must be less than 250 characters.";
-
-        }
-
-        break;
-
-
-      // ---------------------------------------
-      // CITY
-      // ---------------------------------------
-
-      case "city":
-
-        if (!value.trim()) {
-
-          error =
-            "Please enter your city.";
-
-        } else if (
-          !/^[A-Za-z\s.'-]+$/.test(value.trim())
-        ) {
-
-          error =
-            "City can contain only letters.";
-
-        } else if (value.trim().length < 2) {
-
-          error =
-            "Please enter a valid city.";
-
-        }
-
-        break;
-
-
-      // ---------------------------------------
-      // STATE
-      // ---------------------------------------
-
-      case "state":
-
-        if (!value.trim()) {
-
-          error =
-            "Please enter your state.";
-
-        } else if (
-          !/^[A-Za-z\s.'-]+$/.test(value.trim())
-        ) {
-
-          error =
-            "State can contain only letters.";
-
-        } else if (value.trim().length < 2) {
-
-          error =
-            "Please enter a valid state.";
-
-        }
-
-        break;
-
-
-      // ---------------------------------------
-      // PINCODE
-      // ---------------------------------------
-
-      case "pincode":
-
-        if (!value.trim()) {
-
-          error =
-            "Please enter your pincode.";
-
-        } else if (!/^\d{6}$/.test(value.trim())) {
-
-          error =
-            "Pincode must contain exactly 6 digits.";
-
-        }
-
-        break;
-
-
-      default:
-        break;
-    }
-
-    return error;
-  };
-
-
-  // =========================================
-  // VALIDATE COMPLETE FORM
-  // =========================================
-
-  const validateForm = () => {
-
-    const newErrors = {};
-
-    Object.keys(formData).forEach((field) => {
-
-      const error = validateField(
-        field,
-        formData[field]
-      );
-
-      if (error) {
-        newErrors[field] = error;
-      }
-
-    });
-
-    setErrors(newErrors);
-
-    return Object.keys(newErrors).length === 0;
-  };
-
-
-  // =========================================
-  // HANDLE INPUT
-  // =========================================
-
-  const handleChange = (event) => {
-
-    const {
-      name,
-      value,
-    } = event.target;
-
-
-    // Phone: allow only numbers
-    if (name === "phone") {
-
-      const numericValue =
-        value.replace(/\D/g, "").slice(0, 10);
-
-      setFormData((current) => ({
-        ...current,
-        [name]: numericValue,
-      }));
-
-    }
-
-    // Pincode: allow only numbers
-    else if (name === "pincode") {
-
-      const numericValue =
-        value.replace(/\D/g, "").slice(0, 6);
-
-      setFormData((current) => ({
-        ...current,
-        [name]: numericValue,
-      }));
-
-    }
-
-    else {
-
-      setFormData((current) => ({
-        ...current,
-        [name]: value,
-      }));
-
-    }
-
-
-    // Clear current error
-    setErrors((current) => ({
-      ...current,
-      [name]: "",
-    }));
-
-  };
-
-
-  // =========================================
-  // HANDLE BLUR
-  // =========================================
-
-  const handleBlur = (event) => {
-
-    const {
-      name,
-      value,
-    } = event.target;
-
-    const error = validateField(
-      name,
-      value
-    );
-
-    setErrors((current) => ({
-      ...current,
-      [name]: error,
-    }));
-
-  };
-
-
-  // =========================================
-  // USE LIVE LOCATION
-  // =========================================
-
-  const handleUseLocation = () => {
-
-    if (!navigator.geolocation) {
-
-      setLocationMessage(
-        "Live location is not supported by your browser."
-      );
-
-      return;
-    }
-
-
-    setLocationLoading(true);
-
-    setLocationMessage(
-      "Getting your location..."
+  /* =========================================
+     SUBTOTAL
+  ========================================== */
+
+  const subtotal =
+    cart.reduce(
+      (
+        total,
+        product
+      ) =>
+        total +
+        product.price *
+          product.quantity,
+      0
     );
 
 
-    navigator.geolocation.getCurrentPosition(
-
-      async (position) => {
-
-        const {
-          latitude,
-          longitude,
-        } = position.coords;
-
-
-        try {
-
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
-          );
-
-
-          if (!response.ok) {
-            throw new Error(
-              "Unable to get location address."
-            );
-          }
-
-
-          const data =
-            await response.json();
-
-
-          const address =
-            data.address || {};
-
-
-          setFormData((current) => ({
-
-            ...current,
-
-            address:
-              data.display_name ||
-              current.address,
-
-            city:
-              address.city ||
-              address.town ||
-              address.village ||
-              address.municipality ||
-              current.city,
-
-            state:
-              address.state ||
-              current.state,
-
-            pincode:
-              address.postcode ||
-              current.pincode,
-
-          }));
-
-
-          // Clear address-related errors
-          setErrors((current) => ({
-            ...current,
-            address: "",
-            city: "",
-            state: "",
-            pincode: "",
-          }));
-
-
-          setLocationMessage(
-            "Location added successfully."
-          );
-
-        }
-
-        catch (error) {
-
-          console.error(
-            "Location address error:",
-            error
-          );
-
-          setLocationMessage(
-            "Location found, but we couldn't get the address. Please enter it manually."
-          );
-
-        }
-
-        finally {
-
-          setLocationLoading(false);
-
-        }
-
-      },
-
-
-      (error) => {
-
-        console.error(
-          "Geolocation error:",
-          error
-        );
-
-
-        setLocationLoading(false);
-
-
-        setLocationMessage(
-          "Unable to access your location. Please allow location permission or enter your address manually."
-        );
-
-      },
-
-
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      }
-
-    );
-
-  };
-
-
-  // =========================================
-  // ORDER TOTALS
-  // =========================================
-
-  const subtotal = getCartTotal();
+  /* =========================================
+     SHIPPING
+  ========================================== */
 
   const shipping =
     subtotal >= 999
       ? 0
-      : 60;
+      : 50;
 
-  const couponDiscount = 0;
+
+  /* =========================================
+     TOTAL
+  ========================================== */
 
   const total =
-    subtotal +
-    shipping -
-    couponDiscount;
+    Math.max(
+      0,
+      subtotal +
+        shipping -
+        couponDiscount
+    );
 
 
-  // =========================================
-  // PLACE ORDER
-  // =========================================
+  /* =========================================
+     VALIDATE ADDRESS FIELD
+  ========================================== */
 
-  const handlePlaceOrder = (event) => {
+  const validateAddressField =
+    (
+      name,
+      value
+    ) => {
+      let error = "";
 
-    event.preventDefault();
+      switch (name) {
+
+        case "fullName":
+
+          if (!value.trim()) {
+            error =
+              "Please enter your full name.";
+          } else if (
+            !/^[A-Za-z\s.'-]+$/.test(
+              value.trim()
+            )
+          ) {
+            error =
+              "Name can contain only letters and spaces.";
+          } else if (
+            value.trim().length < 2
+          ) {
+            error =
+              "Name must be at least 2 characters.";
+          }
+
+          break;
 
 
-    const isValid =
-      validateForm();
+        case "phone": {
+
+          const phone =
+            value.replace(
+              /\D/g,
+              ""
+            );
+
+          if (!value.trim()) {
+            error =
+              "Please enter your phone number.";
+          } else if (
+            !/^[6-9]\d{9}$/.test(
+              phone
+            )
+          ) {
+            error =
+              "Please enter a valid 10-digit Indian mobile number.";
+          }
+
+          break;
+        }
 
 
-    if (!isValid) {
+        case "address":
 
-      // Scroll to first error
-      const firstError =
-        document.querySelector(
-          ".checkout-field-error"
-        );
+          if (!value.trim()) {
+            error =
+              "Please enter your complete address.";
+          } else if (
+            value.trim().length < 10
+          ) {
+            error =
+              "Please enter a more complete address.";
+          }
 
-      if (firstError) {
+          break;
 
-        firstError.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
 
+        case "city":
+
+          if (!value.trim()) {
+            error =
+              "Please enter your city.";
+          }
+
+          break;
+
+
+        case "state":
+
+          if (!value.trim()) {
+            error =
+              "Please enter your state.";
+          }
+
+          break;
+
+
+        case "pincode":
+
+          if (!/^\d{6}$/.test(
+            value.trim()
+          )) {
+            error =
+              "Pincode must contain exactly 6 digits.";
+          }
+
+          break;
+
+
+        default:
+          break;
       }
 
-      return;
-    }
+      return error;
+    };
 
 
-    if (cart.length === 0) {
-      return;
-    }
+  /* =========================================
+     VALIDATE ADDRESS
+  ========================================== */
+
+  const validateAddress =
+    () => {
+      const errors = {};
+
+      const requiredFields = [
+        "fullName",
+        "phone",
+        "address",
+        "city",
+        "state",
+        "pincode",
+      ];
+
+      requiredFields.forEach(
+        (field) => {
+          const fieldError =
+            validateAddressField(
+              field,
+              addressForm[field]
+            );
+
+          if (fieldError) {
+            errors[field] =
+              fieldError;
+          }
+        }
+      );
+
+      return errors;
+    };
 
 
-    console.log(
-      "Customer details:",
-      formData
+  /* =========================================
+     ADDRESS INPUT
+  ========================================== */
+
+  const handleAddressChange =
+    (event) => {
+      const {
+        name,
+        value,
+      } = event.target;
+
+      let nextValue =
+        value;
+
+      if (name === "phone") {
+        nextValue =
+          value
+            .replace(/\D/g, "")
+            .slice(0, 10);
+      }
+
+      if (name === "pincode") {
+        nextValue =
+          value
+            .replace(/\D/g, "")
+            .slice(0, 6);
+      }
+
+      setAddressForm(
+        (current) => ({
+          ...current,
+          [name]:
+            nextValue,
+        })
+      );
+
+      setAddressError("");
+    };
+
+
+  /* =========================================
+     USE LIVE LOCATION
+  ========================================== */
+
+  const handleUseLocation =
+    () => {
+      if (
+        !navigator.geolocation
+      ) {
+        setLocationMessage(
+          "Live location is not supported by your browser."
+        );
+
+        return;
+      }
+
+      setLocationLoading(true);
+
+      setLocationMessage(
+        "Getting your location..."
+      );
+
+      navigator.geolocation.getCurrentPosition(
+        async (
+          position
+        ) => {
+          const {
+            latitude,
+            longitude,
+          } =
+            position.coords;
+
+          try {
+            const response =
+              await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
+              );
+
+            if (!response.ok) {
+              throw new Error(
+                "Unable to get location address."
+              );
+            }
+
+            const data =
+              await response.json();
+
+            const address =
+              data.address || {};
+
+            setAddressForm(
+              (current) => ({
+                ...current,
+
+                address:
+                  data.display_name ||
+                  current.address,
+
+                city:
+                  address.city ||
+                  address.town ||
+                  address.village ||
+                  address.municipality ||
+                  current.city,
+
+                state:
+                  address.state ||
+                  current.state,
+
+                pincode:
+                  address.postcode ||
+                  current.pincode,
+
+                latitude,
+                longitude,
+              })
+            );
+
+            setAddressError("");
+
+            setLocationMessage(
+              "Location added successfully."
+            );
+
+          } catch (err) {
+            console.error(
+              "Location error:",
+              err
+            );
+
+            setLocationMessage(
+              "Location found, but we couldn't get the address. Please enter it manually."
+            );
+
+          } finally {
+            setLocationLoading(false);
+          }
+        },
+
+        (err) => {
+          console.error(
+            "Geolocation error:",
+            err
+          );
+
+          setLocationLoading(false);
+
+          setLocationMessage(
+            "Unable to access your location. Please allow location permission or enter your address manually."
+          );
+        },
+
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+    };
+
+
+  /* =========================================
+     CREATE NEW ADDRESS
+  ========================================== */
+
+  const handleSaveAddress =
+    async () => {
+      const validationErrors =
+        validateAddress();
+
+      if (
+        Object.keys(
+          validationErrors
+        ).length > 0
+      ) {
+        setAddressError(
+          Object.values(
+            validationErrors
+          )[0]
+        );
+
+        return;
+      }
+
+      try {
+        setSavingAddress(true);
+        setAddressError("");
+
+        const token =
+          await getAccessToken();
+
+        const response =
+          await fetch(
+            `${API_URL}/api/addresses`,
+            {
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${token}`,
+              },
+
+              body: JSON.stringify({
+                full_name:
+                  addressForm.fullName.trim(),
+
+                phone:
+                  addressForm.phone.trim(),
+
+                address_line_1:
+                  addressForm.address.trim(),
+
+                address_line_2:
+                  addressForm.addressLine2.trim() ||
+                  null,
+
+                city:
+                  addressForm.city.trim(),
+
+                state:
+                  addressForm.state.trim(),
+
+                pincode:
+                  addressForm.pincode.trim(),
+
+                latitude:
+                  addressForm.latitude,
+
+                longitude:
+                  addressForm.longitude,
+
+                is_default:
+                  addresses.length === 0,
+              }),
+            }
+          );
+
+        const result =
+          await response.json();
+
+        if (
+          !response.ok ||
+          !result.success
+        ) {
+          throw new Error(
+            result.message ||
+              "Unable to save address."
+          );
+        }
+
+        const newAddress =
+          result.address;
+
+        setAddresses(
+          (current) => [
+            newAddress,
+            ...current,
+          ]
+        );
+
+        setSelectedAddressId(
+          newAddress.id
+        );
+
+        setShowNewAddress(
+          false
+        );
+
+        setAddressForm(
+          emptyAddressForm
+        );
+
+        setLocationMessage("");
+
+      } catch (err) {
+        console.error(
+          "Save address error:",
+          err
+        );
+
+        setAddressError(
+          err.message ||
+            "Unable to save address."
+        );
+
+      } finally {
+        setSavingAddress(false);
+      }
+    };
+
+
+  /* =========================================
+     APPLY COUPON
+  ========================================== */
+
+  const handleApplyCoupon =
+    async () => {
+      if (
+        !couponCode.trim()
+      ) {
+        setCouponError(
+          "Please enter a coupon code."
+        );
+
+        return;
+      }
+
+      try {
+        setCouponLoading(true);
+        setCouponError("");
+
+        const response =
+          await fetch(
+            `${API_URL}/api/coupons/validate`,
+            {
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body: JSON.stringify({
+                code:
+                  couponCode.trim(),
+
+                subtotal,
+              }),
+            }
+          );
+
+        const result =
+          await response.json();
+
+        if (
+          !response.ok ||
+          !result.success
+        ) {
+          throw new Error(
+            result.message ||
+              "Invalid coupon."
+          );
+        }
+
+        setAppliedCoupon(
+          result.coupon
+        );
+
+        setCouponDiscount(
+          Number(
+            result.discount
+          ) || 0
+        );
+
+        setCouponCode(
+          result.coupon.code
+        );
+
+      } catch (err) {
+        console.error(
+          "Coupon error:",
+          err
+        );
+
+        setAppliedCoupon(
+          null
+        );
+
+        setCouponDiscount(0);
+
+        setCouponError(
+          err.message ||
+            "Unable to validate coupon."
+        );
+
+      } finally {
+        setCouponLoading(false);
+      }
+    };
+
+
+  /* =========================================
+     REMOVE COUPON
+  ========================================== */
+
+  const handleRemoveCoupon =
+    () => {
+      setAppliedCoupon(null);
+      setCouponDiscount(0);
+      setCouponCode("");
+      setCouponError("");
+    };
+
+
+  /* =========================================
+     PLACE ORDER
+  ========================================== */
+
+  const handlePlaceOrder =
+    async (event) => {
+      event.preventDefault();
+
+      setError("");
+
+      if (!selectedAddressId) {
+        setError(
+          "Please select or add a delivery address."
+        );
+
+        return;
+      }
+
+      if (cart.length === 0) {
+        setError(
+          "Your cart is empty."
+        );
+
+        navigate("/cart");
+
+        return;
+      }
+
+      try {
+        setPlacingOrder(true);
+
+        const token =
+          await getAccessToken();
+
+        /*
+         * The backend calculates the final
+         * subtotal, shipping, discount and
+         * total again from the database.
+         *
+         * We only send:
+         * - address_id
+         * - coupon_code
+         */
+
+        const response =
+          await fetch(
+            `${API_URL}/api/orders`,
+            {
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${token}`,
+              },
+
+              body: JSON.stringify({
+                address_id:
+                  selectedAddressId,
+
+                coupon_code:
+                  appliedCoupon?.code ||
+                  null,
+              }),
+            }
+          );
+
+        const result =
+          await response.json();
+
+        if (
+          !response.ok ||
+          !result.success
+        ) {
+          throw new Error(
+            result.message ||
+              "Unable to create your order."
+          );
+        }
+
+        /*
+         * Razorpay will be connected in
+         * the final payment phase.
+         *
+         * For now the backend order is
+         * created with payment_status:
+         * pending.
+         */
+
+        window.dispatchEvent(
+          new Event(
+            "beePureCartUpdated"
+          )
+        );
+
+        window.dispatchEvent(
+          new Event(
+            "cartUpdated"
+          )
+        );
+
+        navigate("/account", {
+          state: {
+            orderCreated: true,
+
+            order:
+              result.order,
+          },
+        });
+
+      } catch (err) {
+        console.error(
+          "Place order error:",
+          err
+        );
+
+        setError(
+          err.message ||
+            "Unable to place your order."
+        );
+
+      } finally {
+        setPlacingOrder(false);
+      }
+    };
+
+
+  /* =========================================
+     LOADING
+  ========================================== */
+
+  if (loading) {
+    return (
+      <main className="checkout-page">
+
+        <div className="checkout-empty">
+
+          <Loader2
+            size={40}
+            className="checkout-spinner"
+          />
+
+          <h1>
+            Loading Checkout...
+          </h1>
+
+          <p>
+            Preparing your cart and
+            delivery information.
+          </p>
+
+        </div>
+
+      </main>
     );
+  }
 
 
-    console.log(
-      "Order:",
-      cart
-    );
-
-
-    console.log(
-      "Total:",
-      total
-    );
-
-
-    /*
-     * Razorpay will be connected here later.
-     */
-
-    alert(
-      "Order details saved. Payment gateway will be connected next."
-    );
-
-  };
-
-
-  // =========================================
-  // EMPTY CART
-  // =========================================
+  /* =========================================
+     EMPTY CART
+  ========================================== */
 
   if (cart.length === 0) {
-
     return (
-
       <main className="checkout-page">
 
         <div className="checkout-empty">
@@ -632,26 +1162,22 @@ function Checkout() {
         </div>
 
       </main>
-
     );
-
   }
 
 
-  // =========================================
-  // CHECKOUT
-  // =========================================
+  /* =========================================
+     CHECKOUT UI
+  ========================================== */
 
   return (
-
     <main className="checkout-page">
 
       <div className="checkout-container">
 
-
         {/* =====================================
             HEADER
-        ===================================== */}
+        ====================================== */}
 
         <div className="checkout-header">
 
@@ -672,579 +1198,742 @@ function Checkout() {
 
           </div>
 
-
           <Link
             to="/cart"
             className="checkout-back"
           >
-
             <ArrowLeft size={16} />
-
             Back to Cart
-
           </Link>
 
         </div>
 
 
         {/* =====================================
-            MAIN CHECKOUT
-        ===================================== */}
+            GLOBAL ERROR
+        ====================================== */}
+
+        {error && (
+          <div className="checkout-page-error">
+            {error}
+          </div>
+        )}
+
 
         <form
           className="checkout-layout"
-          onSubmit={handlePlaceOrder}
+          onSubmit={
+            handlePlaceOrder
+          }
           noValidate
         >
 
-
           {/* ===================================
-              DELIVERY DETAILS
-          =================================== */}
+              LEFT SIDE
+          ==================================== */}
 
-          <section className="checkout-card">
-
-
-            {/* CARD HEADER */}
-
-            <div className="checkout-card-header">
-
-              <div className="checkout-card-icon">
-
-                <User size={18} />
-
-              </div>
-
-
-              <div>
-
-                <h2>
-                  Delivery Details
-                </h2>
-
-                <p>
-                  Where should we deliver your order?
-                </p>
-
-              </div>
-
-            </div>
+          <div className="checkout-left">
 
 
             {/* =================================
-                CUSTOMER DETAILS
+                SAVED ADDRESSES
             ================================= */}
 
-            <div className="checkout-form-grid">
+            <section className="checkout-card">
+
+              <div className="checkout-card-header">
+
+                <div className="checkout-card-icon">
+                  <MapPin size={18} />
+                </div>
+
+                <div>
+
+                  <h2>
+                    Delivery Address
+                  </h2>
+
+                  <p>
+                    Select where you'd like
+                    your order delivered.
+                  </p>
+
+                </div>
+
+              </div>
 
 
-              {/* FULL NAME */}
+              {/* SAVED ADDRESSES */}
 
-              <div className="checkout-field">
+              {addresses.length > 0 && (
+                <div className="checkout-address-list">
 
-                <label htmlFor="fullName">
-                  Full Name
-                </label>
+                  {addresses.map(
+                    (address) => {
+
+                      const selected =
+                        selectedAddressId ===
+                        address.id;
+
+                      return (
+                        <button
+                          type="button"
+                          key={address.id}
+                          className={`checkout-saved-address ${
+                            selected
+                              ? "selected"
+                              : ""
+                          }`}
+                          onClick={() => {
+                            setSelectedAddressId(
+                              address.id
+                            );
+
+                            setShowNewAddress(
+                              false
+                            );
+                          }}
+                        >
+
+                          <span className="checkout-address-radio">
+
+                            {selected && (
+                              <CheckCircle
+                                size={18}
+                              />
+                            )}
+
+                          </span>
+
+                          <span className="checkout-address-details">
+
+                            <strong>
+                              {
+                                address.full_name
+                              }
+                            </strong>
+
+                            <span>
+                              {
+                                address.phone
+                              }
+                            </span>
+
+                            <span>
+                              {
+                                address.address_line_1
+                              }
+                              {address.address_line_2 &&
+                                `, ${address.address_line_2}`}
+                            </span>
+
+                            <span>
+                              {
+                                address.city
+                              }
+                              ,{" "}
+                              {
+                                address.state
+                              }{" "}
+                              -{" "}
+                              {
+                                address.pincode
+                              }
+                            </span>
+
+                            {address.is_default && (
+                              <small>
+                                Default Address
+                              </small>
+                            )}
+
+                          </span>
+
+                        </button>
+                      );
+                    }
+                  )}
+
+                </div>
+              )}
 
 
-                <div
-                  className={`checkout-input-wrapper ${
-                    errors.fullName
-                      ? "has-error"
-                      : ""
-                  }`}
+              {/* ADD NEW ADDRESS BUTTON */}
+
+              {!showNewAddress && (
+                <button
+                  type="button"
+                  className="checkout-add-address"
+                  onClick={() => {
+                    setShowNewAddress(
+                      true
+                    );
+
+                    setSelectedAddressId(
+                      ""
+                    );
+                  }}
                 >
 
-                  <User
-                    size={16}
-                    aria-hidden="true"
-                  />
+                  <Plus size={16} />
 
+                  Add New Address
+
+                </button>
+              )}
+
+
+              {/* =================================
+                  NEW ADDRESS
+              ================================== */}
+
+              {showNewAddress && (
+
+                <div className="checkout-new-address">
+
+                  <div className="checkout-address-header">
+
+                    <div>
+
+                      <h3>
+                        Add New Address
+                      </h3>
+
+                      <p>
+                        Enter your delivery
+                        information.
+                      </p>
+
+                    </div>
+
+
+                    <button
+                      type="button"
+                      className="checkout-location-button"
+                      onClick={
+                        handleUseLocation
+                      }
+                      disabled={
+                        locationLoading
+                      }
+                    >
+
+                      <Navigation size={15} />
+
+                      {locationLoading
+                        ? "Locating..."
+                        : "Use Live Location"}
+
+                    </button>
+
+                  </div>
+
+
+                  {locationMessage && (
+                    <p className="checkout-location-message">
+                      {locationMessage}
+                    </p>
+                  )}
+
+
+                  <div className="checkout-form-grid">
+
+
+                    {/* NAME */}
+
+                    <div className="checkout-field">
+
+                      <label htmlFor="checkout-fullName">
+                        Full Name
+                      </label>
+
+                      <div className="checkout-input-wrapper">
+
+                        <User size={16} />
+
+                        <input
+                          id="checkout-fullName"
+                          name="fullName"
+                          type="text"
+                          placeholder="Enter your full name"
+                          value={
+                            addressForm.fullName
+                          }
+                          onChange={
+                            handleAddressChange
+                          }
+                          maxLength="50"
+                          autoComplete="name"
+                        />
+
+                      </div>
+
+                    </div>
+
+
+                    {/* PHONE */}
+
+                    <div className="checkout-field">
+
+                      <label htmlFor="checkout-phone">
+                        Phone Number
+                      </label>
+
+                      <div className="checkout-input-wrapper">
+
+                        <Phone size={16} />
+
+                        <input
+                          id="checkout-phone"
+                          name="phone"
+                          type="tel"
+                          placeholder="10-digit mobile number"
+                          value={
+                            addressForm.phone
+                          }
+                          onChange={
+                            handleAddressChange
+                          }
+                          maxLength="10"
+                          inputMode="numeric"
+                          autoComplete="tel"
+                        />
+
+                      </div>
+
+                    </div>
+
+
+                    {/* ADDRESS */}
+
+                    <div className="checkout-field checkout-full">
+
+                      <label htmlFor="checkout-address">
+                        Address
+                      </label>
+
+                      <div className="checkout-input-wrapper checkout-textarea-wrapper">
+
+                        <Home size={16} />
+
+                        <textarea
+                          id="checkout-address"
+                          name="address"
+                          rows="3"
+                          placeholder="House / Flat / Street / Area"
+                          value={
+                            addressForm.address
+                          }
+                          onChange={
+                            handleAddressChange
+                          }
+                          maxLength="250"
+                        />
+
+                      </div>
+
+                    </div>
+
+
+                    {/* ADDRESS LINE 2 */}
+
+                    <div className="checkout-field checkout-full">
+
+                      <label htmlFor="checkout-addressLine2">
+                        Address Line 2
+                        <span>
+                          {" "}
+                          (Optional)
+                        </span>
+                      </label>
+
+                      <input
+                        id="checkout-addressLine2"
+                        name="addressLine2"
+                        type="text"
+                        placeholder="Apartment, landmark, etc."
+                        value={
+                          addressForm.addressLine2
+                        }
+                        onChange={
+                          handleAddressChange
+                        }
+                        maxLength="150"
+                      />
+
+                    </div>
+
+
+                    {/* CITY */}
+
+                    <div className="checkout-field">
+
+                      <label htmlFor="checkout-city">
+                        City
+                      </label>
+
+                      <input
+                        id="checkout-city"
+                        name="city"
+                        type="text"
+                        placeholder="City"
+                        value={
+                          addressForm.city
+                        }
+                        onChange={
+                          handleAddressChange
+                        }
+                        maxLength="50"
+                        autoComplete="address-level2"
+                      />
+
+                    </div>
+
+
+                    {/* STATE */}
+
+                    <div className="checkout-field">
+
+                      <label htmlFor="checkout-state">
+                        State
+                      </label>
+
+                      <input
+                        id="checkout-state"
+                        name="state"
+                        type="text"
+                        placeholder="State"
+                        value={
+                          addressForm.state
+                        }
+                        onChange={
+                          handleAddressChange
+                        }
+                        maxLength="50"
+                        autoComplete="address-level1"
+                      />
+
+                    </div>
+
+
+                    {/* PINCODE */}
+
+                    <div className="checkout-field">
+
+                      <label htmlFor="checkout-pincode">
+                        Pincode
+                      </label>
+
+                      <input
+                        id="checkout-pincode"
+                        name="pincode"
+                        type="tel"
+                        placeholder="6-digit pincode"
+                        value={
+                          addressForm.pincode
+                        }
+                        onChange={
+                          handleAddressChange
+                        }
+                        maxLength="6"
+                        inputMode="numeric"
+                        autoComplete="postal-code"
+                      />
+
+                    </div>
+
+                  </div>
+
+
+                  {/* ADDRESS ERROR */}
+
+                  {addressError && (
+                    <p className="checkout-field-error">
+                      {addressError}
+                    </p>
+                  )}
+
+
+                  {/* ADDRESS ACTIONS */}
+
+                  <div className="checkout-address-actions">
+
+                    <button
+                      type="button"
+                      className="checkout-save-address"
+                      onClick={
+                        handleSaveAddress
+                      }
+                      disabled={
+                        savingAddress
+                      }
+                    >
+
+                      {savingAddress ? (
+                        <>
+                          <Loader2
+                            size={15}
+                            className="checkout-spinner"
+                          />
+
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle
+                            size={15}
+                          />
+
+                          Save Address
+                        </>
+                      )}
+
+                    </button>
+
+
+                    {addresses.length > 0 && (
+                      <button
+                        type="button"
+                        className="checkout-cancel-address"
+                        onClick={() => {
+
+                          setShowNewAddress(
+                            false
+                          );
+
+                          const defaultAddress =
+                            addresses.find(
+                              (address) =>
+                                address.is_default
+                            );
+
+                          setSelectedAddressId(
+                            defaultAddress?.id ||
+                              addresses[0]?.id ||
+                              ""
+                          );
+
+                          setAddressForm(
+                            emptyAddressForm
+                          );
+
+                          setAddressError("");
+
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+
+                  </div>
+
+                </div>
+              )}
+
+            </section>
+
+
+            {/* =================================
+                COUPON
+            ================================== */}
+
+            <section className="checkout-card">
+
+              <div className="checkout-card-header">
+
+                <div className="checkout-card-icon">
+                  <Tag size={18} />
+                </div>
+
+                <div>
+
+                  <h2>
+                    Coupon
+                  </h2>
+
+                  <p>
+                    Have a coupon code?
+                  </p>
+
+                </div>
+
+              </div>
+
+
+              {!appliedCoupon ? (
+
+                <div className="checkout-coupon-form">
 
                   <input
-                    id="fullName"
-                    name="fullName"
                     type="text"
-                    placeholder="Enter your full name"
-                    value={formData.fullName}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    autoComplete="name"
-                    maxLength="50"
-                    aria-invalid={Boolean(
-                      errors.fullName
-                    )}
+                    placeholder="Enter coupon code"
+                    value={
+                      couponCode
+                    }
+                    onChange={(event) => {
+                      setCouponCode(
+                        event.target.value
+                      );
+
+                      setCouponError("");
+                    }}
+                    disabled={
+                      couponLoading
+                    }
                   />
+
+                  <button
+                    type="button"
+                    onClick={
+                      handleApplyCoupon
+                    }
+                    disabled={
+                      couponLoading
+                    }
+                  >
+
+                    {couponLoading
+                      ? "Applying..."
+                      : "Apply"}
+
+                  </button>
 
                 </div>
 
+              ) : (
 
-                {errors.fullName && (
+                <div className="checkout-coupon-applied">
 
-                  <span className="checkout-field-error">
-                    {errors.fullName}
-                  </span>
+                  <div>
 
-                )}
-
-              </div>
-
-
-              {/* PHONE */}
-
-              <div className="checkout-field">
-
-                <label htmlFor="phone">
-                  Phone Number
-                </label>
-
-
-                <div
-                  className={`checkout-input-wrapper ${
-                    errors.phone
-                      ? "has-error"
-                      : ""
-                  }`}
-                >
-
-                  <Phone
-                    size={16}
-                    aria-hidden="true"
-                  />
-
-
-                  <input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    placeholder="10-digit mobile number"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    autoComplete="tel"
-                    inputMode="numeric"
-                    maxLength="10"
-                    aria-invalid={Boolean(
-                      errors.phone
-                    )}
-                  />
-
-                </div>
-
-
-                {errors.phone && (
-
-                  <span className="checkout-field-error">
-                    {errors.phone}
-                  </span>
-
-                )}
-
-              </div>
-
-
-              {/* EMAIL */}
-
-              <div className="checkout-field checkout-full">
-
-                <label htmlFor="email">
-                  Email Address
-                </label>
-
-
-                <div
-                  className={`checkout-input-wrapper ${
-                    errors.email
-                      ? "has-error"
-                      : ""
-                  }`}
-                >
-
-                  <Mail
-                    size={16}
-                    aria-hidden="true"
-                  />
-
-
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="Enter your email address"
-                    value={formData.email}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    autoComplete="email"
-                    aria-invalid={Boolean(
-                      errors.email
-                    )}
-                  />
-
-                </div>
-
-
-                {errors.email && (
-
-                  <span className="checkout-field-error">
-                    {errors.email}
-                  </span>
-
-                )}
-
-              </div>
-
-            </div>
-
-
-            {/* =================================
-                DELIVERY ADDRESS HEADER
-            ================================= */}
-
-            <div className="checkout-address-header">
-
-              <div>
-
-                <h3>
-                  Delivery Address
-                </h3>
-
-                <p>
-                  Enter your address manually
-                  or use your live location.
-                </p>
-
-              </div>
-
-
-              <button
-                type="button"
-                className="checkout-location-button"
-                onClick={handleUseLocation}
-                disabled={locationLoading}
-              >
-
-                <Navigation size={15} />
-
-                {locationLoading
-                  ? "Locating..."
-                  : "Use Live Location"}
-
-              </button>
-
-            </div>
-
-
-            {/* LOCATION MESSAGE */}
-
-            {locationMessage && (
-
-              <p className="checkout-location-message">
-                {locationMessage}
-              </p>
-
-            )}
-
-
-            {/* =================================
-                ADDRESS FIELDS
-            ================================= */}
-
-            <div className="checkout-form-grid">
-
-
-              {/* ADDRESS */}
-
-              <div className="checkout-field checkout-full">
-
-                <label htmlFor="address">
-                  Address
-                </label>
-
-
-                <div
-                  className={`checkout-input-wrapper checkout-textarea-wrapper ${
-                    errors.address
-                      ? "has-error"
-                      : ""
-                  }`}
-                >
-
-                  <Home
-                    size={16}
-                    aria-hidden="true"
-                  />
-
-
-                  <textarea
-                    id="address"
-                    name="address"
-                    placeholder="House / Flat / Street / Area"
-                    value={formData.address}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    maxLength="250"
-                    aria-invalid={Boolean(
-                      errors.address
-                    )}
-                  />
-
-                </div>
-
-
-                {errors.address && (
-
-                  <span className="checkout-field-error">
-                    {errors.address}
-                  </span>
-
-                )}
-
-              </div>
-
-
-              {/* CITY */}
-
-              <div className="checkout-field">
-
-                <label htmlFor="city">
-                  City
-                </label>
-
-
-                <input
-                  id="city"
-                  name="city"
-                  type="text"
-                  placeholder="City"
-                  value={formData.city}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  autoComplete="address-level2"
-                  maxLength="50"
-                  className={
-                    errors.city
-                      ? "input-error"
-                      : ""
-                  }
-                  aria-invalid={Boolean(
-                    errors.city
-                  )}
-                />
-
-
-                {errors.city && (
-
-                  <span className="checkout-field-error">
-                    {errors.city}
-                  </span>
-
-                )}
-
-              </div>
-
-
-              {/* STATE */}
-
-              <div className="checkout-field">
-
-                <label htmlFor="state">
-                  State
-                </label>
-
-
-                <input
-                  id="state"
-                  name="state"
-                  type="text"
-                  placeholder="State"
-                  value={formData.state}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  autoComplete="address-level1"
-                  maxLength="50"
-                  className={
-                    errors.state
-                      ? "input-error"
-                      : ""
-                  }
-                  aria-invalid={Boolean(
-                    errors.state
-                  )}
-                />
-
-
-                {errors.state && (
-
-                  <span className="checkout-field-error">
-                    {errors.state}
-                  </span>
-
-                )}
-
-              </div>
-
-
-              {/* PINCODE */}
-
-              <div className="checkout-field">
-
-                <label htmlFor="pincode">
-                  Pincode
-                </label>
-
-
-                <input
-                  id="pincode"
-                  name="pincode"
-                  type="text"
-                  inputMode="numeric"
-                  maxLength="6"
-                  placeholder="6-digit pincode"
-                  value={formData.pincode}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  autoComplete="postal-code"
-                  className={
-                    errors.pincode
-                      ? "input-error"
-                      : ""
-                  }
-                  aria-invalid={Boolean(
-                    errors.pincode
-                  )}
-                />
-
-
-                {errors.pincode && (
-
-                  <span className="checkout-field-error">
-                    {errors.pincode}
-                  </span>
-
-                )}
-
-              </div>
-
-            </div>
-
-
-            {/* =================================
-                LOCATION INFO
-            ================================= */}
-
-            <div className="checkout-location-info">
-
-              <MapPin size={16} />
-
-              <span>
-                You can use your live location
-                or enter your complete address
-                manually.
-              </span>
-
-            </div>
-
-          </section>
-
-
-          {/* ===================================
-              ORDER SUMMARY
-          =================================== */}
-
-          <aside className="checkout-summary">
-
-
-            {/* SUMMARY HEADER */}
-
-            <div className="checkout-summary-header">
-
-              <div>
-
-                <p>
-                  YOUR ORDER
-                </p>
-
-                <h2>
-                  Order Summary
-                </h2>
-
-              </div>
-
-
-              <span>
-                {cart.length}{" "}
-                {cart.length === 1
-                  ? "item"
-                  : "items"}
-              </span>
-
-            </div>
-
-
-            {/* PRODUCTS */}
-
-            <div className="checkout-products">
-
-              {cart.map((product) => (
-
-                <div
-                  className="checkout-product"
-                  key={product.id}
-                >
-
-                  <div className="checkout-product-image">
-
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                    />
+                    <strong>
+                      ✓{" "}
+                      {
+                        appliedCoupon.code
+                      }
+                    </strong>
 
                     <span>
-                      {product.quantity}
+                      Coupon applied
                     </span>
 
                   </div>
 
+                  <button
+                    type="button"
+                    onClick={
+                      handleRemoveCoupon
+                    }
+                  >
+                    <Trash2
+                      size={14}
+                    />
 
-                  <div className="checkout-product-info">
-
-                    <strong>
-                      {product.name}
-                    </strong>
-
-                    <small>
-                      ₹
-                      {product.price.toLocaleString(
-                        "en-IN"
-                      )}{" "}
-                      × {product.quantity}
-                    </small>
-
-                  </div>
-
-
-                  <strong className="checkout-product-total">
-
-                    ₹
-                    {(
-                      product.price *
-                      product.quantity
-                    ).toLocaleString("en-IN")}
-
-                  </strong>
+                    Remove
+                  </button>
 
                 </div>
 
-              ))}
-
-            </div>
+              )}
 
 
-            {/* TOTALS */}
+              {couponError && (
+                <p className="checkout-coupon-error">
+                  {couponError}
+                </p>
+              )}
 
-            <div className="checkout-total-lines">
+            </section>
 
-              <div>
+          </div>
+
+
+          {/* ===================================
+              RIGHT SIDE SUMMARY
+          ==================================== */}
+
+          <aside className="checkout-summary">
+
+            <div className="checkout-summary-card">
+
+              <h2>
+                Your Order
+              </h2>
+
+
+              {/* PRODUCTS */}
+
+              <div className="checkout-order-items">
+
+                {cart.map(
+                  (product) => (
+                    <div
+                      className="checkout-order-item"
+                      key={
+                        product.cartItemId
+                      }
+                    >
+
+                      <div className="checkout-order-image">
+
+                        <img
+                          src={
+                            product.image
+                          }
+                          alt={
+                            product.name
+                          }
+                        />
+
+                        <span>
+                          {
+                            product.quantity
+                          }
+                        </span>
+
+                      </div>
+
+                      <div className="checkout-order-details">
+
+                        <strong>
+                          {
+                            product.name
+                          }
+                        </strong>
+
+                        <span>
+                          ₹
+                          {
+                            product.price
+                          }
+                          {" "}×{" "}
+                          {
+                            product.quantity
+                          }
+                        </span>
+
+                      </div>
+
+                      <strong>
+                        ₹
+                        {(
+                          product.price *
+                          product.quantity
+                        ).toLocaleString(
+                          "en-IN"
+                        )}
+                      </strong>
+
+                    </div>
+                  )
+                )}
+
+              </div>
+
+
+              {/* SUBTOTAL */}
+
+              <div className="checkout-summary-row">
 
                 <span>
                   Subtotal
@@ -1260,7 +1949,9 @@ function Checkout() {
               </div>
 
 
-              <div>
+              {/* SHIPPING */}
+
+              <div className="checkout-summary-row">
 
                 <span>
                   Shipping
@@ -1283,70 +1974,111 @@ function Checkout() {
               </div>
 
 
-              {couponDiscount > 0 && (
+              {/* DISCOUNT */}
 
-                <div>
+              {couponDiscount > 0 && (
+                <div className="checkout-summary-row checkout-discount">
 
                   <span>
-                    Coupon Discount
+                    Discount
                   </span>
 
-                  <strong className="checkout-discount">
+                  <strong>
                     -₹
-                    {couponDiscount.toLocaleString(
-                      "en-IN"
-                    )}
+                    {
+                      couponDiscount.toLocaleString(
+                        "en-IN",
+                        {
+                          maximumFractionDigits: 2,
+                        }
+                      )
+                    }
                   </strong>
 
                 </div>
+              )}
 
+
+              {/* TOTAL */}
+
+              <div className="checkout-total">
+
+                <span>
+                  Total
+                </span>
+
+                <strong>
+                  ₹
+                  {total.toLocaleString(
+                    "en-IN",
+                    {
+                      maximumFractionDigits: 2,
+                    }
+                  )}
+                </strong>
+
+              </div>
+
+
+              {/* PLACE ORDER */}
+
+              <button
+                type="submit"
+                className="checkout-place-order"
+                disabled={
+                  placingOrder ||
+                  !selectedAddressId
+                }
+              >
+
+                {placingOrder ? (
+                  <>
+                    <Loader2
+                      size={17}
+                      className="checkout-spinner"
+                    />
+
+                    Creating Order...
+                  </>
+                ) : (
+                  <>
+                    <Lock size={16} />
+
+                    Place Order
+                  </>
+                )}
+
+              </button>
+
+
+              <p className="checkout-secure-note">
+
+                <Lock size={13} />
+
+                Your information is
+                securely protected.
+
+              </p>
+
+
+              {/* SHIPPING NOTE */}
+
+              {subtotal < 999 && (
+                <p className="checkout-shipping-note">
+
+                  Add ₹
+                  {(
+                    999 - subtotal
+                  ).toLocaleString(
+                    "en-IN"
+                  )}
+                  {" "}
+                  more for free shipping.
+
+                </p>
               )}
 
             </div>
-
-
-            {/* GRAND TOTAL */}
-
-            <div className="checkout-grand-total">
-
-              <span>
-                Total
-              </span>
-
-              <strong>
-                ₹
-                {total.toLocaleString(
-                  "en-IN"
-                )}
-              </strong>
-
-            </div>
-
-
-            {/* PLACE ORDER */}
-
-            <button
-              type="submit"
-              className="checkout-place-order"
-            >
-
-              <Lock size={16} />
-
-              Continue to Payment
-
-            </button>
-
-
-            {/* SECURE MESSAGE */}
-
-            <p className="checkout-secure">
-
-              <Lock size={12} />
-
-              Secure checkout • Your details
-              are protected
-
-            </p>
 
           </aside>
 
@@ -1355,7 +2087,6 @@ function Checkout() {
       </div>
 
     </main>
-
   );
 }
 

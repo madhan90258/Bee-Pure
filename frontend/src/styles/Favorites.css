@@ -412,3 +412,25 @@
   }
 
 }
+/* =========================================
+   FAVORITES LOADING SPINNER
+========================================= */
+
+.favorites-spinner {
+  animation: favoritesSpin 0.8s linear infinite;
+}
+
+@keyframes favoritesSpin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.favorite-remove:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

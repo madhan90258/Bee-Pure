@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   User,
@@ -20,11 +20,19 @@ import {
   UserCircle,
   CheckCircle,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 
 import { Link, useNavigate } from "react-router-dom";
 
+import { supabase } from "../lib/supabase";
+
 import "../styles/SellerAccount.css";
+
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
+
 
 function SellerAccount() {
   const navigate = useNavigate();
@@ -34,11 +42,27 @@ function SellerAccount() {
   // =========================================
 
   const [seller, setSeller] = useState({
-    name: "Bee Pure Seller",
+    name: "",
     username: "seller",
-    email: "seller@beepure.com",
-    mobile: "+91 98765 43210",
+    email: "",
+    mobile: "",
+    role: "",
   });
+
+  // =========================================
+  // PAGE STATE
+  // =========================================
+
+  const [loading, setLoading] = useState(true);
+
+  const [savingProfile, setSavingProfile] =
+    useState(false);
+
+  const [updatingPassword, setUpdatingPassword] =
+    useState(false);
+
+  const [loggingOut, setLoggingOut] =
+    useState(false);
 
   // =========================================
   // PERSONAL DETAILS EDIT
@@ -47,21 +71,11 @@ function SellerAccount() {
   const [isEditingProfile, setIsEditingProfile] =
     useState(false);
 
-  const [editName, setEditName] = useState(
-    seller.name
-  );
+  const [editName, setEditName] =
+    useState("");
 
-  const [editMobile, setEditMobile] = useState(
-    seller.mobile
-  );
-
-  // =========================================
-  // USERNAME FORM
-  // =========================================
-
-  const [newUsername, setNewUsername] = useState(
-    seller.username
-  );
+  const [editMobile, setEditMobile] =
+    useState("");
 
   // =========================================
   // PASSWORD FORM
@@ -111,6 +125,157 @@ function SellerAccount() {
   };
 
   // =========================================
+  // GET ACCESS TOKEN
+  // =========================================
+
+  const getAccessToken = async () => {
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
+
+    if (error) {
+      throw error;
+    }
+
+    return session?.access_token || null;
+  };
+
+  // =========================================
+  // LOAD SELLER PROFILE
+  // =========================================
+
+  const loadSellerProfile = async () => {
+    try {
+      setLoading(true);
+      setErrorMessage("");
+
+      const token = await getAccessToken();
+
+      if (!token) {
+        navigate("/login", {
+          replace: true,
+        });
+        return;
+      }
+
+      const response = await fetch(
+        `${API_URL}/api/profile`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.message ||
+            "Unable to load seller profile."
+        );
+      }
+
+      const profile =
+        result.profile ||
+        result.data?.profile ||
+        result.data ||
+        result;
+
+      // ---------------------------------------
+      // SELLER ROLE CHECK
+      // ---------------------------------------
+
+      if (
+        profile.role &&
+        profile.role !== "seller" &&
+        profile.role !== "admin"
+      ) {
+        await supabase.auth.signOut();
+
+        navigate("/login", {
+          replace: true,
+        });
+
+        return;
+      }
+
+      // ---------------------------------------
+      // AUTH EMAIL
+      // ---------------------------------------
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const email =
+        profile.email ||
+        user?.email ||
+        "";
+
+      const name =
+        profile.full_name ||
+        "";
+
+      const mobile =
+        profile.phone ||
+        "";
+
+      setSeller({
+        name,
+        username: "seller",
+        email,
+        mobile,
+        role: profile.role || "seller",
+      });
+
+      setEditName(name);
+      setEditMobile(mobile);
+
+    } catch (error) {
+      console.error(
+        "Load seller profile error:",
+        error
+      );
+
+      setErrorMessage(
+        error.message ||
+          "Unable to load seller profile."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =========================================
+  // INITIAL LOAD
+  // =========================================
+
+  useEffect(() => {
+    loadSellerProfile();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (
+          event === "SIGNED_OUT" ||
+          !session
+        ) {
+          navigate("/login", {
+            replace: true,
+          });
+        }
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // =========================================
   // EDIT PERSONAL DETAILS
   // =========================================
 
@@ -140,7 +305,7 @@ function SellerAccount() {
   // SAVE PERSONAL DETAILS
   // =========================================
 
-  const handleSaveProfile = (event) => {
+  const handleSaveProfile = async (event) => {
     event.preventDefault();
 
     clearMessages();
@@ -177,7 +342,8 @@ function SellerAccount() {
       return;
     }
 
-    const cleanMobile = mobile.replace(/\D/g, "");
+    const cleanMobile =
+      mobile.replace(/\D/g, "");
 
     if (
       cleanMobile.length !== 10 ||
@@ -189,75 +355,90 @@ function SellerAccount() {
       return;
     }
 
-    // -----------------------------------------
-    // UPDATE SELLER
-    // -----------------------------------------
+    try {
+      setSavingProfile(true);
 
-    setSeller((previous) => ({
-      ...previous,
-      name,
-      mobile,
-    }));
+      const token =
+        await getAccessToken();
 
-    setEditName(name);
-    setEditMobile(mobile);
+      if (!token) {
+        navigate("/login", {
+          replace: true,
+        });
+        return;
+      }
 
-    setIsEditingProfile(false);
+      const response = await fetch(
+        `${API_URL}/api/profile`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            full_name: name,
+            phone: mobile,
+          }),
+        }
+      );
 
-    setSuccessMessage(
-      "Personal details updated successfully."
-    );
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.message ||
+            "Unable to update profile."
+        );
+      }
+
+      const updatedProfile =
+        result.profile ||
+        result.data?.profile ||
+        result.data ||
+        {};
+
+      setSeller((previous) => ({
+        ...previous,
+        name:
+          updatedProfile.full_name ||
+          name,
+        mobile:
+          updatedProfile.phone ||
+          mobile,
+      }));
+
+      setEditName(name);
+      setEditMobile(mobile);
+
+      setIsEditingProfile(false);
+
+      setSuccessMessage(
+        "Personal details updated successfully."
+      );
+
+    } catch (error) {
+      console.error(
+        "Save seller profile error:",
+        error
+      );
+
+      setErrorMessage(
+        error.message ||
+          "Unable to update profile."
+      );
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   // =========================================
-  // UPDATE USERNAME
+  // PASSWORD UPDATE
   // =========================================
 
-  const handleUsernameUpdate = (event) => {
-    event.preventDefault();
-
-    clearMessages();
-
-    const username = newUsername.trim();
-
-    if (!username) {
-      setErrorMessage(
-        "Please enter a valid username."
-      );
-      return;
-    }
-
-    if (username.length < 4) {
-      setErrorMessage(
-        "Username must contain at least 4 characters."
-      );
-      return;
-    }
-
-    if (!/^[a-zA-Z0-9._-]+$/.test(username)) {
-      setErrorMessage(
-        "Username can contain only letters, numbers, dots, underscores and hyphens."
-      );
-      return;
-    }
-
-    setSeller((previous) => ({
-      ...previous,
-      username,
-    }));
-
-    setNewUsername(username);
-
-    setSuccessMessage(
-      "Username updated successfully."
-    );
-  };
-
-  // =========================================
-  // UPDATE PASSWORD
-  // =========================================
-
-  const handlePasswordUpdate = (event) => {
+  const handlePasswordUpdate = async (
+    event
+  ) => {
     event.preventDefault();
 
     clearMessages();
@@ -297,42 +478,125 @@ function SellerAccount() {
       return;
     }
 
-    /*
-      BACKEND TODO
+    try {
+      setUpdatingPassword(true);
 
-      Later this section will send the password
-      change request to Supabase/backend.
-    */
+      // ---------------------------------------
+      // GET CURRENT USER
+      // ---------------------------------------
 
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-    setSuccessMessage(
-      "Password updated successfully."
-    );
+      if (userError) {
+        throw userError;
+      }
+
+      if (!user?.email) {
+        throw new Error(
+          "Unable to identify your seller account."
+        );
+      }
+
+      // ---------------------------------------
+      // VERIFY CURRENT PASSWORD
+      // ---------------------------------------
+
+      const {
+        error: signInError,
+      } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        throw new Error(
+          "Current password is incorrect."
+        );
+      }
+
+      // ---------------------------------------
+      // UPDATE PASSWORD
+      // ---------------------------------------
+
+      const {
+        error: updateError,
+      } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // ---------------------------------------
+      // CLEAR FORM
+      // ---------------------------------------
+
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+
+      setSuccessMessage(
+        "Password updated successfully."
+      );
+
+    } catch (error) {
+      console.error(
+        "Update seller password error:",
+        error
+      );
+
+      setErrorMessage(
+        error.message ||
+          "Unable to update password."
+      );
+    } finally {
+      setUpdatingPassword(false);
+    }
   };
 
   // =========================================
   // LOGOUT
   // =========================================
 
-  const handleLogout = () => {
-    /*
-      BACKEND TODO
+  const handleLogout = async () => {
+    try {
+      clearMessages();
 
-      Later:
+      setLoggingOut(true);
 
-      - Clear seller authentication token
-      - Clear seller session
-      - Redirect to login
-    */
+      const {
+        error,
+      } = await supabase.auth.signOut();
 
-    localStorage.removeItem("sellerLoggedIn");
+      if (error) {
+        throw error;
+      }
 
-    navigate("/login", {
-      replace: true,
-    });
+      localStorage.removeItem(
+        "sellerLoggedIn"
+      );
+
+      navigate("/login", {
+        replace: true,
+      });
+
+    } catch (error) {
+      console.error(
+        "Seller logout error:",
+        error
+      );
+
+      setErrorMessage(
+        error.message ||
+          "Unable to logout. Please try again."
+      );
+
+      setLoggingOut(false);
+    }
   };
 
   // =========================================
@@ -382,6 +646,64 @@ function SellerAccount() {
       active: true,
     },
   ];
+
+  // =========================================
+  // LOADING
+  // =========================================
+
+  if (loading) {
+    return (
+      <main className="seller-account-page">
+
+        <section className="seller-account-header">
+          <div className="seller-account-header-inner">
+            <div>
+              <span className="seller-account-eyebrow">
+                Seller Panel
+              </span>
+
+              <h1>
+                Seller Account
+              </h1>
+
+              <p>
+                Manage your seller profile and
+                account security.
+              </p>
+            </div>
+
+            <div className="seller-account-header-icon">
+              <UserCircle size={42} />
+            </div>
+          </div>
+        </section>
+
+        <section className="seller-account-container">
+          <div
+            style={{
+              width: "100%",
+              minHeight: "300px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexDirection: "column",
+              gap: "12px",
+            }}
+          >
+            <Loader2
+              size={34}
+              className="seller-account-spinner"
+            />
+
+            <p>
+              Loading seller account...
+            </p>
+          </div>
+        </section>
+
+      </main>
+    );
+  }
 
   // =========================================
   // PAGE
@@ -447,11 +769,12 @@ function SellerAccount() {
             <div className="seller-profile-info">
 
               <h3>
-                {seller.name}
+                {seller.name ||
+                  "Bee Pure Seller"}
               </h3>
 
               <p>
-                @{seller.username}
+                {seller.email}
               </p>
 
             </div>
@@ -498,12 +821,22 @@ function SellerAccount() {
             type="button"
             className="seller-logout-button"
             onClick={handleLogout}
+            disabled={loggingOut}
           >
 
-            <LogOut size={18} />
+            {loggingOut ? (
+              <Loader2
+                size={18}
+                className="seller-account-spinner"
+              />
+            ) : (
+              <LogOut size={18} />
+            )}
 
             <span>
-              Logout
+              {loggingOut
+                ? "Logging out..."
+                : "Logout"}
             </span>
 
           </button>
@@ -517,9 +850,7 @@ function SellerAccount() {
 
         <div className="seller-account-content">
 
-          {/* =========================================
-              SUCCESS MESSAGE
-          ========================================= */}
+          {/* SUCCESS MESSAGE */}
 
           {successMessage && (
             <div className="seller-account-message success">
@@ -534,9 +865,7 @@ function SellerAccount() {
           )}
 
 
-          {/* =========================================
-              ERROR MESSAGE
-          ========================================= */}
+          {/* ERROR MESSAGE */}
 
           {errorMessage && (
             <div className="seller-account-message error">
@@ -557,8 +886,6 @@ function SellerAccount() {
 
           <section className="seller-account-card">
 
-            {/* CARD HEADER */}
-
             <div className="seller-card-header">
 
               <div className="seller-card-icon">
@@ -577,8 +904,6 @@ function SellerAccount() {
 
               </div>
 
-
-              {/* EDIT BUTTON */}
 
               {!isEditingProfile && (
                 <button
@@ -599,15 +924,11 @@ function SellerAccount() {
             </div>
 
 
-            {/* =====================================
-                PROFILE DETAILS
-            ===================================== */}
+            {/* PROFILE DETAILS */}
 
             <div className="seller-profile-details">
 
-              {/* =====================================
-                  SELLER NAME
-              ===================================== */}
+              {/* SELLER NAME */}
 
               <div className="seller-detail-item">
 
@@ -631,6 +952,7 @@ function SellerAccount() {
                       }
                       placeholder="Enter seller name"
                       autoComplete="name"
+                      disabled={savingProfile}
                     />
 
                   </div>
@@ -642,7 +964,8 @@ function SellerAccount() {
                     <User size={17} />
 
                     <span>
-                      {seller.name}
+                      {seller.name ||
+                        "Not provided"}
                     </span>
 
                   </div>
@@ -652,9 +975,7 @@ function SellerAccount() {
               </div>
 
 
-              {/* =====================================
-                  EMAIL
-              ===================================== */}
+              {/* EMAIL */}
 
               <div className="seller-detail-item">
 
@@ -667,7 +988,8 @@ function SellerAccount() {
                   <Mail size={17} />
 
                   <span>
-                    {seller.email}
+                    {seller.email ||
+                      "Not available"}
                   </span>
 
                 </div>
@@ -675,9 +997,7 @@ function SellerAccount() {
               </div>
 
 
-              {/* =====================================
-                  MOBILE NUMBER
-              ===================================== */}
+              {/* MOBILE */}
 
               <div className="seller-detail-item">
 
@@ -701,6 +1021,7 @@ function SellerAccount() {
                       }
                       placeholder="Enter mobile number"
                       autoComplete="tel"
+                      disabled={savingProfile}
                     />
 
                   </div>
@@ -712,7 +1033,8 @@ function SellerAccount() {
                     <Phone size={17} />
 
                     <span>
-                      {seller.mobile}
+                      {seller.mobile ||
+                        "Not provided"}
                     </span>
 
                   </div>
@@ -722,9 +1044,7 @@ function SellerAccount() {
               </div>
 
 
-              {/* =====================================
-                  ACCOUNT TYPE
-              ===================================== */}
+              {/* ACCOUNT TYPE */}
 
               <div className="seller-detail-item">
 
@@ -737,7 +1057,9 @@ function SellerAccount() {
                   <ShieldCheck size={17} />
 
                   <span>
-                    Administrator / Seller
+                    {seller.role === "admin"
+                      ? "Administrator"
+                      : "Seller"}
                   </span>
 
                 </div>
@@ -747,9 +1069,7 @@ function SellerAccount() {
             </div>
 
 
-            {/* =====================================
-                INLINE EDIT ACTIONS
-            ===================================== */}
+            {/* EDIT ACTIONS */}
 
             {isEditingProfile && (
 
@@ -761,13 +1081,29 @@ function SellerAccount() {
                 <button
                   type="submit"
                   className="seller-save-button"
+                  disabled={savingProfile}
                 >
 
-                  <Save size={17} />
+                  {savingProfile ? (
+                    <>
+                      <Loader2
+                        size={17}
+                        className="seller-account-spinner"
+                      />
 
-                  <span>
-                    Save Changes
-                  </span>
+                      <span>
+                        Saving...
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Save size={17} />
+
+                      <span>
+                        Save Changes
+                      </span>
+                    </>
+                  )}
 
                 </button>
 
@@ -775,7 +1111,10 @@ function SellerAccount() {
                 <button
                   type="button"
                   className="seller-cancel-button"
-                  onClick={handleCancelProfileEdit}
+                  onClick={
+                    handleCancelProfileEdit
+                  }
+                  disabled={savingProfile}
                 >
                   Cancel
                 </button>
@@ -788,7 +1127,7 @@ function SellerAccount() {
 
 
           {/* =========================================
-              CHANGE USERNAME
+              USERNAME
           ========================================= */}
 
           <section className="seller-account-card">
@@ -802,12 +1141,12 @@ function SellerAccount() {
               <div className="seller-card-header-content">
 
                 <h2>
-                  Change Username
+                  Username
                 </h2>
 
                 <p>
-                  Update the username used to access
-                  your seller account.
+                  Your seller username is currently
+                  managed by the authentication system.
                 </p>
 
               </div>
@@ -815,14 +1154,11 @@ function SellerAccount() {
             </div>
 
 
-            <form
-              className="seller-account-form"
-              onSubmit={handleUsernameUpdate}
-            >
+            <div className="seller-account-form">
 
               <div className="seller-form-group">
 
-                <label htmlFor="seller-username">
+                <label>
                   Username
                 </label>
 
@@ -831,37 +1167,24 @@ function SellerAccount() {
                   <User size={18} />
 
                   <input
-                    id="seller-username"
                     type="text"
-                    value={newUsername}
-                    onChange={(event) =>
-                      setNewUsername(
-                        event.target.value
-                      )
+                    value={
+                      seller.username
                     }
-                    placeholder="Enter username"
-                    autoComplete="username"
+                    disabled
+                    readOnly
                   />
 
                 </div>
 
+                <small>
+                  Username changes require a username
+                  field in the seller profile database.
+                </small>
+
               </div>
 
-
-              <button
-                type="submit"
-                className="seller-save-button"
-              >
-
-                <Save size={17} />
-
-                <span>
-                  Save Username
-                </span>
-
-              </button>
-
-            </form>
+            </div>
 
           </section>
 
@@ -926,6 +1249,9 @@ function SellerAccount() {
                     }
                     placeholder="Enter current password"
                     autoComplete="current-password"
+                    disabled={
+                      updatingPassword
+                    }
                   />
 
                   <button
@@ -936,6 +1262,9 @@ function SellerAccount() {
                         (previous) =>
                           !previous
                       )
+                    }
+                    disabled={
+                      updatingPassword
                     }
                     aria-label={
                       showCurrentPassword
@@ -984,6 +1313,9 @@ function SellerAccount() {
                     }
                     placeholder="Enter new password"
                     autoComplete="new-password"
+                    disabled={
+                      updatingPassword
+                    }
                   />
 
                   <button
@@ -994,6 +1326,9 @@ function SellerAccount() {
                         (previous) =>
                           !previous
                       )
+                    }
+                    disabled={
+                      updatingPassword
                     }
                     aria-label={
                       showNewPassword
@@ -1047,6 +1382,9 @@ function SellerAccount() {
                     }
                     placeholder="Confirm new password"
                     autoComplete="new-password"
+                    disabled={
+                      updatingPassword
+                    }
                   />
 
                   <button
@@ -1057,6 +1395,9 @@ function SellerAccount() {
                         (previous) =>
                           !previous
                       )
+                    }
+                    disabled={
+                      updatingPassword
                     }
                     aria-label={
                       showConfirmPassword
@@ -1081,13 +1422,31 @@ function SellerAccount() {
               <button
                 type="submit"
                 className="seller-save-button"
+                disabled={
+                  updatingPassword
+                }
               >
 
-                <Save size={17} />
+                {updatingPassword ? (
+                  <>
+                    <Loader2
+                      size={17}
+                      className="seller-account-spinner"
+                    />
 
-                <span>
-                  Update Password
-                </span>
+                    <span>
+                      Updating...
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Save size={17} />
+
+                    <span>
+                      Update Password
+                    </span>
+                  </>
+                )}
 
               </button>
 
@@ -1151,12 +1510,22 @@ function SellerAccount() {
                 type="button"
                 className="seller-security-logout"
                 onClick={handleLogout}
+                disabled={loggingOut}
               >
 
-                <LogOut size={17} />
+                {loggingOut ? (
+                  <Loader2
+                    size={17}
+                    className="seller-account-spinner"
+                  />
+                ) : (
+                  <LogOut size={17} />
+                )}
 
                 <span>
-                  Logout
+                  {loggingOut
+                    ? "Logging out..."
+                    : "Logout"}
                 </span>
 
               </button>

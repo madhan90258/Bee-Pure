@@ -517,3 +517,79 @@
   }
 
 }
+/* =========================================
+   FAVORITES COUNT
+========================================= */
+
+.navbar-favorites-count {
+  position: absolute;
+
+  top: 2px;
+  right: 1px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  min-width: 16px;
+  height: 16px;
+
+  padding: 0 4px;
+
+  background-color: var(--color-gold);
+  color: var(--color-brown);
+
+  border: 2px solid var(--color-cream);
+  border-radius: var(--radius-full);
+
+  font-size: 9px;
+  font-weight: 700;
+
+  line-height: 1;
+}
+
+
+/* =========================================
+   ACTIVE ACTION
+========================================= */
+
+.navbar-action.active {
+  background-color: var(--color-background-green);
+  color: var(--color-primary);
+}
+
+
+/* =========================================
+   MOBILE COUNT
+========================================= */
+
+.navbar-mobile-count {
+  margin-left: auto;
+
+  min-width: 22px;
+  height: 22px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0 6px;
+
+  border-radius: 999px;
+
+  background-color: var(--color-gold);
+  color: var(--color-brown);
+
+  font-size: 10px;
+  font-weight: 800;
+}
+
+
+/* =========================================
+   MOBILE NAVIGATION
+========================================= */
+
+.navbar-mobile-link {
+  display: flex;
+  align-items: center;
+}

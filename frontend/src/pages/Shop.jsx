@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import {
   ShoppingCart,
-  Search,
-  SlidersHorizontal,
-  X,
+  Loader2,
+  Check,
 } from "lucide-react";
 
 import { supabase } from "../lib/supabase";
@@ -25,7 +24,6 @@ const getProductImageUrl = (storagePath) => {
     return "";
   }
 
-  // If the database already contains a full URL
   if (
     storagePath.startsWith("http://") ||
     storagePath.startsWith("https://")
@@ -46,35 +44,23 @@ const getProductImageUrl = (storagePath) => {
 ========================================= */
 
 function Shop() {
+  const navigate = useNavigate();
+
   const [products, setProducts] = useState([]);
 
   const [loading, setLoading] = useState(true);
 
   const [error, setError] = useState("");
 
-  const [searchTerm, setSearchTerm] =
-    useState("");
+  const [addingProductId, setAddingProductId] =
+    useState(null);
 
-  const [selectedCategory, setSelectedCategory] =
-    useState("");
-
-  const [selectedFarmer, setSelectedFarmer] =
-    useState("");
-
-  const [sortBy, setSortBy] =
-    useState("newest");
-
-  const [showFilters, setShowFilters] =
-    useState(false);
-
-  const [categories, setCategories] =
+  const [addedProductIds, setAddedProductIds] =
     useState([]);
 
-  const [farmers, setFarmers] =
-    useState([]);
 
   /* =========================================
-     LOAD PRODUCTS
+     LOAD PRODUCTS FROM BACKEND
   ========================================== */
 
   useEffect(() => {
@@ -87,8 +73,7 @@ function Shop() {
           `${API_URL}/api/products?limit=100`
         );
 
-        const result =
-          await response.json();
+        const result = await response.json();
 
         if (
           !response.ok ||
@@ -119,15 +104,9 @@ function Shop() {
                   product.categories?.name ||
                   "",
 
-                categoryId:
-                  product.category_id,
-
                 farmer:
                   product.farmers?.name ||
                   "",
-
-                farmerId:
-                  product.farmer_id,
 
                 price:
                   Number(product.price) || 0,
@@ -145,8 +124,7 @@ function Shop() {
                   ),
 
                 rating:
-                  Number(product.rating) ||
-                  0,
+                  Number(product.rating) || 0,
 
                 description:
                   product.description || "",
@@ -183,211 +161,132 @@ function Shop() {
 
 
   /* =========================================
-     LOAD CATEGORIES
+     ADD TO CART - BACKEND
   ========================================== */
 
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const response = await fetch(
-          `${API_URL}/api/categories`
-        );
+  const handleAddToCart = async (product) => {
+    try {
+      setAddingProductId(product.id);
 
-        const result =
-          await response.json();
+      /* -------------------------------------
+         CHECK SUPABASE LOGIN
+      ------------------------------------- */
 
-        if (
-          response.ok &&
-          result.success
-        ) {
-          setCategories(
-            result.categories || []
-          );
-        }
-      } catch (error) {
-        console.error(
-          "Failed to load categories:",
-          error
+      const {
+        data: sessionData,
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        throw new Error(
+          "Unable to verify your login"
         );
       }
-    };
 
-    loadCategories();
-  }, []);
+      const session =
+        sessionData?.session;
+
+      if (!session) {
+        navigate("/login");
+        return;
+      }
 
 
-  /* =========================================
-     LOAD FARMERS
-  ========================================== */
+      /* -------------------------------------
+         ADD PRODUCT TO BACKEND CART
+      ------------------------------------- */
 
-  useEffect(() => {
-    const loadFarmers = async () => {
-      try {
-        const response = await fetch(
-          `${API_URL}/api/farmers`
-        );
+      const response = await fetch(
+        `${API_URL}/api/cart`,
+        {
+          method: "POST",
 
-        const result =
-          await response.json();
+          headers: {
+            "Content-Type":
+              "application/json",
 
-        if (
-          response.ok &&
-          result.success
-        ) {
-          setFarmers(
-            result.farmers || []
-          );
+            Authorization:
+              `Bearer ${session.access_token}`,
+          },
+
+          body: JSON.stringify({
+            product_id: product.id,
+            quantity: 1,
+          }),
         }
-      } catch (error) {
-        console.error(
-          "Failed to load farmers:",
-          error
+      );
+
+      const result =
+        await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message ||
+            "Unable to add product to cart"
         );
       }
-    };
-
-    loadFarmers();
-  }, []);
 
 
-  /* =========================================
-     FILTER + SORT PRODUCTS
-  ========================================== */
+      /* -------------------------------------
+         UPDATE UI
+      ------------------------------------- */
 
-  const filteredProducts =
-    products
-      .filter((product) => {
-        const search =
-          searchTerm
-            .trim()
-            .toLowerCase();
-
-        if (!search) {
-          return true;
+      setAddedProductIds((current) => {
+        if (
+          current.includes(product.id)
+        ) {
+          return current;
         }
 
-        return (
-          product.name
-            .toLowerCase()
-            .includes(search) ||
-          product.category
-            .toLowerCase()
-            .includes(search) ||
-          product.farmer
-            .toLowerCase()
-            .includes(search)
-        );
-      })
-      .filter((product) => {
-        if (!selectedCategory) {
-          return true;
-        }
-
-        return (
-          String(product.categoryId) ===
-          String(selectedCategory)
-        );
-      })
-      .filter((product) => {
-        if (!selectedFarmer) {
-          return true;
-        }
-
-        return (
-          String(product.farmerId) ===
-          String(selectedFarmer)
-        );
-      })
-      .sort((a, b) => {
-        switch (sortBy) {
-          case "price-low":
-            return a.price - b.price;
-
-          case "price-high":
-            return b.price - a.price;
-
-          case "rating":
-            return b.rating - a.rating;
-
-          case "name":
-            return a.name.localeCompare(
-              b.name
-            );
-
-          case "newest":
-          default:
-            return 0;
-        }
+        return [
+          ...current,
+          product.id,
+        ];
       });
 
 
-  /* =========================================
-     ADD TO CART
-  ========================================== */
+      /* -------------------------------------
+         NOTIFY NAVBAR / CART
+      ------------------------------------- */
 
-  const handleAddToCart = (product) => {
-    const savedCart =
-      JSON.parse(
-        localStorage.getItem(
-          "beePureCart"
+      window.dispatchEvent(
+        new Event(
+          "beePureCartUpdated"
         )
-      ) || [];
-
-    const existingProduct =
-      savedCart.find(
-        (cartProduct) =>
-          String(cartProduct.id) ===
-          String(product.id)
       );
 
-    let updatedCart;
+      window.dispatchEvent(
+        new Event(
+          "cartUpdated"
+        )
+      );
 
-    if (existingProduct) {
-      updatedCart =
-        savedCart.map(
-          (cartProduct) =>
-            String(cartProduct.id) ===
-            String(product.id)
-              ? {
-                  ...cartProduct,
 
-                  quantity:
-                    (cartProduct.quantity ||
-                      0) + 1,
-                }
-              : cartProduct
+      /* -------------------------------------
+         RESET BUTTON AFTER SHORT DELAY
+      ------------------------------------- */
+
+      setTimeout(() => {
+        setAddedProductIds((current) =>
+          current.filter(
+            (id) => id !== product.id
+          )
         );
-    } else {
-      updatedCart = [
-        ...savedCart,
+      }, 1500);
 
-        {
-          ...product,
-          quantity: 1,
-        },
-      ];
+    } catch (err) {
+      console.error(
+        "Add to cart error:",
+        err
+      );
+
+      alert(
+        err.message ||
+          "Unable to add product to cart"
+      );
+    } finally {
+      setAddingProductId(null);
     }
-
-    localStorage.setItem(
-      "beePureCart",
-      JSON.stringify(updatedCart)
-    );
-
-    window.dispatchEvent(
-      new Event("cartUpdated")
-    );
-  };
-
-
-  /* =========================================
-     CLEAR FILTERS
-  ========================================== */
-
-  const clearFilters = () => {
-    setSearchTerm("");
-    setSelectedCategory("");
-    setSelectedFarmer("");
-    setSortBy("newest");
   };
 
 
@@ -465,240 +364,32 @@ function Shop() {
 
         <div className="shop-header">
 
-          <div>
+          <p className="shop-eyebrow">
+            BEE PURE
+          </p>
 
-            <p className="shop-eyebrow">
-              BEE PURE
-            </p>
+          <h1>
+            Shop Our Products
+          </h1>
 
-            <h1>
-              Shop Our Products
-            </h1>
-
-            <p>
-              Discover pure, natural and
-              organic products sourced
-              directly from farmers.
-            </p>
-
-          </div>
+          <p className="shop-description">
+            Discover pure, natural and
+            organic products sourced
+            directly from farmers.
+          </p>
 
         </div>
 
 
         {/* ===================================
-            SEARCH + FILTER BAR
-        ==================================== */}
-
-        <div className="shop-toolbar">
-
-          {/* SEARCH */}
-
-          <div className="shop-search">
-
-            <Search size={18} />
-
-            <input
-              type="text"
-              placeholder="Search products..."
-              value={searchTerm}
-              onChange={(event) =>
-                setSearchTerm(
-                  event.target.value
-                )
-              }
-            />
-
-            {searchTerm && (
-
-              <button
-                type="button"
-                onClick={() =>
-                  setSearchTerm("")
-                }
-                aria-label="Clear search"
-              >
-                <X size={16} />
-              </button>
-
-            )}
-
-          </div>
-
-
-          {/* FILTER BUTTON */}
-
-          <button
-            type="button"
-            className="shop-filter-button"
-            onClick={() =>
-              setShowFilters(
-                !showFilters
-              )
-            }
-          >
-            <SlidersHorizontal
-              size={18}
-            />
-
-            Filters
-          </button>
-
-
-          {/* SORT */}
-
-          <select
-            className="shop-sort"
-            value={sortBy}
-            onChange={(event) =>
-              setSortBy(
-                event.target.value
-              )
-            }
-          >
-
-            <option value="newest">
-              Newest
-            </option>
-
-            <option value="price-low">
-              Price: Low to High
-            </option>
-
-            <option value="price-high">
-              Price: High to Low
-            </option>
-
-            <option value="rating">
-              Top Rated
-            </option>
-
-            <option value="name">
-              Name
-            </option>
-
-          </select>
-
-        </div>
-
-
-        {/* ===================================
-            FILTER PANEL
-        ==================================== */}
-
-        {showFilters && (
-
-          <div className="shop-filter-panel">
-
-            {/* CATEGORY */}
-
-            <div className="shop-filter-group">
-
-              <label>
-                Category
-              </label>
-
-              <select
-                value={
-                  selectedCategory
-                }
-                onChange={(event) =>
-                  setSelectedCategory(
-                    event.target.value
-                  )
-                }
-              >
-
-                <option value="">
-                  All Categories
-                </option>
-
-                {categories.map(
-                  (category) => (
-
-                    <option
-                      key={category.id}
-                      value={category.id}
-                    >
-                      {category.name}
-                    </option>
-
-                  )
-                )}
-
-              </select>
-
-            </div>
-
-
-            {/* FARMER */}
-
-            <div className="shop-filter-group">
-
-              <label>
-                Farmer
-              </label>
-
-              <select
-                value={
-                  selectedFarmer
-                }
-                onChange={(event) =>
-                  setSelectedFarmer(
-                    event.target.value
-                  )
-                }
-              >
-
-                <option value="">
-                  All Farmers
-                </option>
-
-                {farmers.map(
-                  (farmer) => (
-
-                    <option
-                      key={farmer.id}
-                      value={farmer.id}
-                    >
-                      {farmer.name}
-                    </option>
-
-                  )
-                )}
-
-              </select>
-
-            </div>
-
-
-            {/* CLEAR */}
-
-            <button
-              type="button"
-              className="shop-clear-filters"
-              onClick={
-                clearFilters
-              }
-            >
-              Clear Filters
-            </button>
-
-          </div>
-
-        )}
-
-
-        {/* ===================================
-            RESULT COUNT
+            PRODUCT COUNT
         ==================================== */}
 
         <div className="shop-results-info">
 
           <span>
-            {filteredProducts.length}{" "}
-            {filteredProducts.length ===
-            1
+            {products.length}{" "}
+            {products.length === 1
               ? "product"
               : "products"}
           </span>
@@ -710,14 +401,22 @@ function Shop() {
             PRODUCT GRID
         ==================================== */}
 
-        {filteredProducts.length >
-        0 ? (
+        {products.length > 0 ? (
 
           <div className="shop-product-grid">
 
-            {filteredProducts.map(
-              (product) => (
+            {products.map((product) => {
 
+              const isAdding =
+                addingProductId ===
+                product.id;
+
+              const isAdded =
+                addedProductIds.includes(
+                  product.id
+                );
+
+              return (
                 <article
                   className="shop-product-card"
                   key={product.id}
@@ -755,11 +454,9 @@ function Shop() {
                     )}
 
                     {product.oldPrice && (
-
                       <span className="shop-sale-badge">
                         SALE
                       </span>
-
                     )}
 
                   </Link>
@@ -769,10 +466,14 @@ function Shop() {
 
                   <div className="shop-product-content">
 
+                    {/* CATEGORY */}
+
                     <p className="shop-product-category">
                       {product.category}
                     </p>
 
+
+                    {/* PRODUCT NAME */}
 
                     <Link
                       to={`/product/${product.id}`}
@@ -786,9 +487,11 @@ function Shop() {
 
                     <div className="shop-product-rating">
 
-                      <span>
+                      <span className="stars">
                         {"★".repeat(
-                          product.rating
+                          Math.round(
+                            product.rating
+                          )
                         )}
                       </span>
 
@@ -801,21 +504,19 @@ function Shop() {
 
                     {/* PRICE */}
 
-                    <div className="shop-product-price">
+                    <div className="shop-price">
 
                       <strong>
                         ₹{product.price}
                       </strong>
 
                       {product.oldPrice && (
-
                         <del>
                           ₹
                           {
                             product.oldPrice
                           }
                         </del>
-
                       )}
 
                     </div>
@@ -824,12 +525,10 @@ function Shop() {
                     {/* FARMER */}
 
                     {product.farmer && (
-
                       <p className="shop-product-farmer">
                         From{" "}
                         {product.farmer}
                       </p>
-
                     )}
 
 
@@ -837,7 +536,11 @@ function Shop() {
 
                     <button
                       type="button"
-                      className="shop-add-cart"
+                      className={`shop-add-cart ${
+                        isAdded
+                          ? "added"
+                          : ""
+                      }`}
                       onClick={() =>
                         handleAddToCart(
                           product
@@ -845,27 +548,57 @@ function Shop() {
                       }
                       disabled={
                         product.stockQuantity <=
-                        0
+                          0 ||
+                        isAdding ||
+                        isAdded
                       }
                     >
 
-                      <ShoppingCart
-                        size={17}
-                      />
+                      {isAdding ? (
 
-                      {product.stockQuantity <=
-                      0
-                        ? "Out of Stock"
-                        : "Add to Cart"}
+                        <>
+                          <Loader2
+                            size={16}
+                            className="spin"
+                          />
+
+                          Adding...
+                        </>
+
+                      ) : isAdded ? (
+
+                        <>
+                          <Check
+                            size={16}
+                          />
+
+                          Added
+                        </>
+
+                      ) : product.stockQuantity <=
+                        0 ? (
+
+                        "Out of Stock"
+
+                      ) : (
+
+                        <>
+                          <ShoppingCart
+                            size={17}
+                          />
+
+                          Add to Cart
+                        </>
+
+                      )}
 
                     </button>
 
                   </div>
 
                 </article>
-
-              )
-            )}
+              );
+            })}
 
           </div>
 
@@ -878,22 +611,13 @@ function Shop() {
           <div className="shop-empty">
 
             <h2>
-              No Products Found
+              No Products Available
             </h2>
 
             <p>
-              Try changing your search
-              or filters.
+              There are currently no
+              products available.
             </p>
-
-            <button
-              type="button"
-              onClick={
-                clearFilters
-              }
-            >
-              Clear Filters
-            </button>
 
           </div>
 

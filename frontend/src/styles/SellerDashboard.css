@@ -1149,3 +1149,78 @@
   }
 
 }
+/* =====================================================
+   SELLER DASHBOARD BACKEND STATES
+===================================================== */
+
+.seller-dashboard-loading,
+.seller-dashboard-error {
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px;
+}
+
+.seller-dashboard-loading p {
+  margin-top: 12px;
+}
+
+.seller-dashboard-spinner {
+  animation: sellerDashboardSpin 1s linear infinite;
+}
+
+@keyframes sellerDashboardSpin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.seller-dashboard-error h2 {
+  margin-bottom: 8px;
+}
+
+.seller-dashboard-error p {
+  margin-bottom: 20px;
+}
+
+.seller-dashboard-error button {
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.seller-dashboard-empty,
+.seller-dashboard-empty-chart {
+  width: 100%;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  opacity: 0.7;
+}
+
+.seller-dashboard-empty-chart {
+  min-height: 220px;
+}
+
+.seller-order-date {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  opacity: 0.65;
+}
+
+.seller-dashboard-stat-content small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}

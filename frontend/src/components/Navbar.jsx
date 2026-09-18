@@ -1,5 +1,4 @@
 import {
-  Search,
   ShoppingCart,
   User,
   Menu,
@@ -7,245 +6,352 @@ import {
   Heart,
 } from "lucide-react";
 
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import {
+  useEffect,
+  useState,
+} from "react";
+
+import {
+  Link,
+  useLocation,
+} from "react-router-dom";
+
+import { supabase } from "../lib/supabase";
+
+
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
+
 
 function Navbar() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const location =
+    useLocation();
 
-  // Cart count
-  const [cartCount, setCartCount] = useState(0);
+  const [isMenuOpen, setIsMenuOpen] =
+    useState(false);
 
-  const navigate = useNavigate();
+  const [cartCount, setCartCount] =
+    useState(0);
+
+  const [favoritesCount, setFavoritesCount] =
+    useState(0);
+
+  const [isLoggedIn, setIsLoggedIn] =
+    useState(false);
+
 
   // =========================================
-  // GET CART COUNT
+  // GET SESSION
   // =========================================
 
-  const updateCartCount = () => {
+  const getSession = async () => {
     try {
-      const savedCart = localStorage.getItem("beePureCart");
+      const {
+        data,
+        error,
+      } =
+        await supabase.auth.getSession();
 
-      if (!savedCart) {
-        setCartCount(0);
-        return;
+      if (error) {
+        console.error(
+          "Navbar session error:",
+          error
+        );
+
+        setIsLoggedIn(false);
+
+        return null;
       }
 
-      const cart = JSON.parse(savedCart);
+      const session =
+        data?.session || null;
 
-      if (!Array.isArray(cart)) {
-        setCartCount(0);
-        return;
-      }
-
-      const totalItems = cart.reduce(
-        (total, item) =>
-          total + (Number(item.quantity) || 1),
-        0
+      setIsLoggedIn(
+        Boolean(session)
       );
 
-      setCartCount(totalItems);
+      return session;
+
     } catch (error) {
-      console.error("Unable to read cart:", error);
-      setCartCount(0);
+      console.error(
+        "Navbar session error:",
+        error
+      );
+
+      setIsLoggedIn(false);
+
+      return null;
     }
   };
 
+
   // =========================================
-  // CART COUNT LISTENER
+  // GET CART COUNT FROM BACKEND
+  // =========================================
+
+  const updateCartCount =
+    async () => {
+      try {
+        const session =
+          await getSession();
+
+        if (!session) {
+          setCartCount(0);
+          return;
+        }
+
+        const response =
+          await fetch(
+            `${API_URL}/api/cart`,
+            {
+              method: "GET",
+
+              headers: {
+                Authorization:
+                  `Bearer ${session.access_token}`,
+              },
+            }
+          );
+
+        const result =
+          await response.json();
+
+        if (
+          !response.ok ||
+          !result.success
+        ) {
+          setCartCount(0);
+          return;
+        }
+
+        const totalItems =
+          (result.cart || []).reduce(
+            (total, item) =>
+              total +
+              (
+                Number(
+                  item.quantity
+                ) || 0
+              ),
+            0
+          );
+
+        setCartCount(
+          totalItems
+        );
+
+      } catch (error) {
+        console.error(
+          "Unable to load cart count:",
+          error
+        );
+
+        setCartCount(0);
+      }
+    };
+
+
+  // =========================================
+  // GET FAVORITES COUNT FROM BACKEND
+  // =========================================
+
+  const updateFavoritesCount =
+    async () => {
+      try {
+        const session =
+          await getSession();
+
+        if (!session) {
+          setFavoritesCount(0);
+          return;
+        }
+
+        const response =
+          await fetch(
+            `${API_URL}/api/favorites`,
+            {
+              method: "GET",
+
+              headers: {
+                Authorization:
+                  `Bearer ${session.access_token}`,
+              },
+            }
+          );
+
+        const result =
+          await response.json();
+
+        if (
+          !response.ok ||
+          !result.success
+        ) {
+          setFavoritesCount(0);
+          return;
+        }
+
+        setFavoritesCount(
+          (result.favorites || [])
+            .length
+        );
+
+      } catch (error) {
+        console.error(
+          "Unable to load favorites count:",
+          error
+        );
+
+        setFavoritesCount(0);
+      }
+    };
+
+
+  // =========================================
+  // UPDATE USER DATA
+  // =========================================
+
+  const updateUserData =
+    async () => {
+      await getSession();
+
+      await Promise.all([
+        updateCartCount(),
+        updateFavoritesCount(),
+      ]);
+    };
+
+
+  // =========================================
+  // INITIAL LOAD + AUTH LISTENER
   // =========================================
 
   useEffect(() => {
-    // Get initial cart count
-    updateCartCount();
+    updateUserData();
 
-    // Same-tab cart updates
-    const handleCartUpdate = () => {
-      updateCartCount();
+    const {
+      data: authListener,
+    } =
+      supabase.auth.onAuthStateChange(
+        async () => {
+          await updateUserData();
+        }
+      );
+
+    return () => {
+      authListener?.subscription?.unsubscribe();
     };
+  }, []);
+
+
+  // =========================================
+  // CART / FAVORITES EVENTS
+  // =========================================
+
+  useEffect(() => {
+
+    const handleCartUpdate =
+      () => {
+        updateCartCount();
+      };
+
+
+    const handleFavoritesUpdate =
+      () => {
+        updateFavoritesCount();
+      };
+
 
     window.addEventListener(
       "beePureCartUpdated",
       handleCartUpdate
     );
 
-    // Cross-tab cart updates
     window.addEventListener(
-      "storage",
+      "cartUpdated",
       handleCartUpdate
     );
 
+    window.addEventListener(
+      "favoritesUpdated",
+      handleFavoritesUpdate
+    );
+
+
     return () => {
+
       window.removeEventListener(
         "beePureCartUpdated",
         handleCartUpdate
       );
 
       window.removeEventListener(
-        "storage",
+        "cartUpdated",
         handleCartUpdate
       );
+
+      window.removeEventListener(
+        "favoritesUpdated",
+        handleFavoritesUpdate
+      );
+
     };
+
   }, []);
 
-  // =========================================
-  // MOBILE MENU
-  // =========================================
 
-  const toggleMenu = () => {
-    setIsMenuOpen((current) => !current);
-  };
+  // =========================================
+  // CLOSE MOBILE MENU
+  // =========================================
 
   const closeMenu = () => {
     setIsMenuOpen(false);
   };
 
-  // =========================================
-  // PRODUCTS
-  // =========================================
-
-  const products = [
-    {
-      id: 1,
-      name: "Pure Forest Honey",
-      category: "Honey",
-      price: 499,
-      oldPrice: 599,
-      image: "/products/forest-honey.jpg",
-      rating: 5,
-      description:
-        "Pure forest honey collected naturally from trusted local beekeepers. Rich in natural goodness, flavour and nutrients.",
-    },
-
-    {
-      id: 2,
-      name: "Raw Organic Honey",
-      category: "Honey",
-      price: 399,
-      oldPrice: null,
-      image: "/products/raw-honey.jpg",
-      rating: 5,
-      description:
-        "Naturally raw and minimally processed honey sourced directly from trusted farmers.",
-    },
-
-    {
-      id: 3,
-      name: "Natural Jaggery",
-      category: "Natural Sweeteners",
-      price: 249,
-      oldPrice: 299,
-      image: "/products/jaggery.jpg",
-      rating: 4,
-      description:
-        "Traditional natural jaggery made with care and sourced directly from local producers.",
-    },
-
-    {
-      id: 4,
-      name: "Organic Turmeric",
-      category: "Healthy Foods",
-      price: 199,
-      oldPrice: null,
-      image: "/products/turmeric.jpg",
-      rating: 5,
-      description:
-        "Naturally grown turmeric with rich colour, flavour and everyday wellness benefits.",
-    },
-
-    {
-      id: 5,
-      name: "Organic A2 Ghee",
-      category: "Healthy Foods",
-      price: 699,
-      oldPrice: 799,
-      image: "/products/ghee.jpg",
-      rating: 5,
-      description:
-        "Traditional A2 ghee made from quality milk and prepared with care.",
-    },
-
-    {
-      id: 6,
-      name: "Forest Bee Honey",
-      category: "Honey",
-      price: 549,
-      oldPrice: null,
-      image: "/products/forest-bee-honey.jpg",
-      rating: 5,
-      description:
-        "Authentic forest honey with a naturally rich taste, sourced from local beekeepers.",
-    },
-  ];
 
   // =========================================
-  // SEARCH
+  // TOGGLE MOBILE MENU
   // =========================================
 
-  const handleSearch = (event) => {
-    event.preventDefault();
+  const toggleMenu = () => {
+    setIsMenuOpen(
+      (current) => !current
+    );
+  };
 
-    const query = searchQuery.trim();
 
-    if (!query) {
-      return;
+  // =========================================
+  // ACTIVE LINK
+  // =========================================
+
+  const isActive = (
+    path
+  ) => {
+    if (path === "/") {
+      return (
+        location.pathname === "/"
+      );
     }
 
-    const normalizedQuery = query.toLowerCase();
-
-    const exactProduct = products.find(
-      (product) =>
-        product.name.toLowerCase() === normalizedQuery
+    return location.pathname.startsWith(
+      path
     );
-
-    if (exactProduct) {
-      navigate(`/product/${exactProduct.id}`);
-
-      setSearchQuery("");
-      setIsSearchOpen(false);
-      closeMenu();
-
-      return;
-    }
-
-    navigate(
-      `/shop?search=${encodeURIComponent(query)}`
-    );
-
-    setSearchQuery("");
-    setIsSearchOpen(false);
-    closeMenu();
   };
 
-  // =========================================
-  // SEARCH TOGGLE
-  // =========================================
-
-  const handleSearchToggle = () => {
-    setIsSearchOpen((current) => !current);
-    setIsMenuOpen(false);
-  };
 
   // =========================================
-  // CLOSE SEARCH
-  // =========================================
-
-  const closeSearch = () => {
-    setIsSearchOpen(false);
-    setSearchQuery("");
-  };
-
-  // =========================================
-  // RENDER
+  // LOGO
   // =========================================
 
   return (
     <header className="navbar">
+
       <div className="container navbar-container">
 
-        {/* MOBILE MENU BUTTON */}
+
+        {/* =====================================
+            MOBILE MENU BUTTON
+        ====================================== */}
 
         <button
           type="button"
@@ -256,27 +362,31 @@ function Navbar() {
               ? "Close navigation menu"
               : "Open navigation menu"
           }
-          aria-expanded={isMenuOpen}
+          aria-expanded={
+            isMenuOpen
+          }
         >
+
           {isMenuOpen ? (
             <X size={24} />
           ) : (
             <Menu size={24} />
           )}
+
         </button>
 
 
-        {/* LOGO */}
+        {/* =====================================
+            LOGO
+        ====================================== */}
 
         <Link
           to="/"
           className="navbar-logo"
-          onClick={() => {
-            closeMenu();
-            closeSearch();
-          }}
+          onClick={closeMenu}
           aria-label="Bee Pure Home"
         >
+
           <span className="navbar-logo-icon">
             🐝
           </span>
@@ -284,10 +394,13 @@ function Navbar() {
           <span className="navbar-logo-text">
             Bee <span>Pure</span>
           </span>
+
         </Link>
 
 
-        {/* DESKTOP NAVIGATION */}
+        {/* =====================================
+            DESKTOP NAVIGATION
+        ====================================== */}
 
         <nav
           className="navbar-nav"
@@ -296,35 +409,59 @@ function Navbar() {
 
           <Link
             to="/"
-            className="navbar-link"
+            className={`navbar-link ${
+              isActive("/")
+                ? "active"
+                : ""
+            }`}
           >
             Home
           </Link>
 
+
           <Link
             to="/shop"
-            className="navbar-link"
+            className={`navbar-link ${
+              isActive("/shop")
+                ? "active"
+                : ""
+            }`}
           >
             Shop
           </Link>
 
+
           <Link
             to="/our-story"
-            className="navbar-link"
+            className={`navbar-link ${
+              isActive("/our-story")
+                ? "active"
+                : ""
+            }`}
           >
             Our Story
           </Link>
 
+
           <Link
             to="/farmers"
-            className="navbar-link"
+            className={`navbar-link ${
+              isActive("/farmers")
+                ? "active"
+                : ""
+            }`}
           >
             Farmers
           </Link>
 
+
           <Link
             to="/contact"
-            className="navbar-link"
+            className={`navbar-link ${
+              isActive("/contact")
+                ? "active"
+                : ""
+            }`}
           >
             Contact
           </Link>
@@ -332,39 +469,36 @@ function Navbar() {
         </nav>
 
 
-        {/* RIGHT ACTIONS */}
+        {/* =====================================
+            RIGHT ACTIONS
+        ====================================== */}
 
         <div className="navbar-actions">
 
-          {/* SEARCH */}
 
-          <button
-            type="button"
-            className="icon-btn navbar-action"
-            aria-label={
-              isSearchOpen
-                ? "Close search"
-                : "Search products"
-            }
-            aria-expanded={isSearchOpen}
-            onClick={handleSearchToggle}
-          >
-            {isSearchOpen ? (
-              <X size={20} />
-            ) : (
-              <Search size={20} />
-            )}
-          </button>
-
-
-          {/* WISHLIST */}
+          {/* FAVORITES */}
 
           <Link
             to="/favorites"
-            className="icon-btn navbar-action navbar-heart"
+            className={`icon-btn navbar-action navbar-heart ${
+              isActive("/favorites")
+                ? "active"
+                : ""
+            }`}
             aria-label="Favorites"
+            onClick={closeMenu}
           >
+
             <Heart size={20} />
+
+            {favoritesCount > 0 && (
+              <span className="navbar-favorites-count">
+                {favoritesCount > 99
+                  ? "99+"
+                  : favoritesCount}
+              </span>
+            )}
+
           </Link>
 
 
@@ -372,131 +506,204 @@ function Navbar() {
 
           <Link
             to="/cart"
-            className="icon-btn navbar-action navbar-cart"
+            className={`icon-btn navbar-action navbar-cart ${
+              isActive("/cart")
+                ? "active"
+                : ""
+            }`}
             aria-label="Shopping cart"
             onClick={closeMenu}
           >
+
             <ShoppingCart size={21} />
 
             {cartCount > 0 && (
               <span className="navbar-cart-count">
-                {cartCount > 99 ? "99+" : cartCount}
+                {cartCount > 99
+                  ? "99+"
+                  : cartCount}
               </span>
             )}
+
           </Link>
 
 
           {/* ACCOUNT */}
 
           <Link
-            to="/login"
-            className="icon-btn navbar-action"
-            aria-label="Account"
+            to={
+              isLoggedIn
+                ? "/account"
+                : "/login"
+            }
+            className={`icon-btn navbar-action ${
+              isActive("/account") ||
+              isActive("/login")
+                ? "active"
+                : ""
+            }`}
+            aria-label={
+              isLoggedIn
+                ? "My account"
+                : "Login"
+            }
             onClick={closeMenu}
           >
+
             <User size={20} />
+
           </Link>
 
         </div>
 
 
-        {/* SEARCH FORM */}
-
-        {isSearchOpen && (
-          <form
-            className="navbar-search-form"
-            onSubmit={handleSearch}
-          >
-
-            <Search
-              size={18}
-              aria-hidden="true"
-            />
-
-            <input
-              type="search"
-              name="search"
-              placeholder="Search products..."
-              value={searchQuery}
-              onChange={(event) =>
-                setSearchQuery(event.target.value)
-              }
-              autoFocus
-              autoComplete="off"
-              aria-label="Search products"
-            />
-
-            <button
-              type="submit"
-              disabled={!searchQuery.trim()}
-            >
-              Search
-            </button>
-
-          </form>
-        )}
-
-
-        {/* MOBILE NAVIGATION */}
+        {/* =====================================
+            MOBILE NAVIGATION
+        ====================================== */}
 
         <nav
           className={`navbar-mobile-nav ${
-            isMenuOpen ? "open" : ""
+            isMenuOpen
+              ? "open"
+              : ""
           }`}
           aria-label="Mobile navigation"
         >
 
           <Link
             to="/"
-            className="navbar-mobile-link"
+            className={`navbar-mobile-link ${
+              isActive("/")
+                ? "active"
+                : ""
+            }`}
             onClick={closeMenu}
           >
             Home
           </Link>
 
+
           <Link
             to="/shop"
-            className="navbar-mobile-link"
+            className={`navbar-mobile-link ${
+              isActive("/shop")
+                ? "active"
+                : ""
+            }`}
             onClick={closeMenu}
           >
             Shop
           </Link>
 
+
           <Link
             to="/our-story"
-            className="navbar-mobile-link"
+            className={`navbar-mobile-link ${
+              isActive("/our-story")
+                ? "active"
+                : ""
+            }`}
             onClick={closeMenu}
           >
             Our Story
           </Link>
 
+
           <Link
             to="/farmers"
-            className="navbar-mobile-link"
+            className={`navbar-mobile-link ${
+              isActive("/farmers")
+                ? "active"
+                : ""
+            }`}
             onClick={closeMenu}
           >
             Farmers
           </Link>
 
+
           <Link
             to="/contact"
-            className="navbar-mobile-link"
+            className={`navbar-mobile-link ${
+              isActive("/contact")
+                ? "active"
+                : ""
+            }`}
             onClick={closeMenu}
           >
             Contact
           </Link>
 
+
+          {/* MOBILE FAVORITES */}
+
           <Link
-            to="/login"
-            className="navbar-mobile-link"
+            to="/favorites"
+            className={`navbar-mobile-link ${
+              isActive("/favorites")
+                ? "active"
+                : ""
+            }`}
             onClick={closeMenu}
           >
-            Account
+            Favorites
+
+            {favoritesCount > 0 && (
+              <span className="navbar-mobile-count">
+                {favoritesCount}
+              </span>
+            )}
+
+          </Link>
+
+
+          {/* MOBILE CART */}
+
+          <Link
+            to="/cart"
+            className={`navbar-mobile-link ${
+              isActive("/cart")
+                ? "active"
+                : ""
+            }`}
+            onClick={closeMenu}
+          >
+            Cart
+
+            {cartCount > 0 && (
+              <span className="navbar-mobile-count">
+                {cartCount}
+              </span>
+            )}
+
+          </Link>
+
+
+          {/* MOBILE ACCOUNT */}
+
+          <Link
+            to={
+              isLoggedIn
+                ? "/account"
+                : "/login"
+            }
+            className={`navbar-mobile-link ${
+              isActive("/account") ||
+              isActive("/login")
+                ? "active"
+                : ""
+            }`}
+            onClick={closeMenu}
+          >
+            {isLoggedIn
+              ? "My Account"
+              : "Login"}
           </Link>
 
         </nav>
 
       </div>
+
     </header>
   );
 }

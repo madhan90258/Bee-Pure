@@ -20,6 +20,9 @@ import Checkout from "./pages/Checkout";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Account from "./pages/Account";
+import Orders from "./pages/Orders";
+import OrderDetails from "./pages/OrderDetails";
+import Addresses from "./pages/Addresses";
 import Favorites from "./pages/Favorites";
 
 import SellerDashboard from "./pages/SellerDashboard";
@@ -174,6 +177,15 @@ function App() {
           path="/seller/account"
           element={<SellerAccount />}
         />
+
+        <Route
+         path="/orders"
+         element={<Orders />}
+        />
+
+        <Route path="/orders/:id" element={<OrderDetails />} />
+
+        <Route path="/addresses" element={<Addresses />} />
 
       </Routes>
 

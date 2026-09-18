@@ -560,3 +560,67 @@
   }
 
 }
+/* =========================================
+   CART LOADING SPINNER
+========================================= */
+
+.cart-spinner {
+  animation: cartSpin 0.8s linear infinite;
+}
+
+@keyframes cartSpin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+/* =========================================
+   CART ERROR
+========================================= */
+
+.cart-page-error {
+  margin-bottom: 20px;
+
+  padding: 12px 15px;
+
+  border: 1px solid #e2b8b8;
+  border-radius: 8px;
+
+  background: #fff6f6;
+
+  color: #a33a3a;
+
+  font-size: 12px;
+  font-weight: 600;
+}
+
+
+/* =========================================
+   BUTTON DISABLED
+========================================= */
+
+.cart-quantity button:disabled,
+.cart-remove:disabled,
+.cart-coupon-form button:disabled {
+  opacity: 0.55;
+
+  cursor: not-allowed;
+}
+
+
+/* =========================================
+   EMPTY CART BUTTON
+========================================= */
+
+.cart-empty button.cart-shop-button {
+  border: 0;
+
+  cursor: pointer;
+
+  font-family: inherit;
+}

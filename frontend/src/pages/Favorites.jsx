@@ -4,9 +4,15 @@ import {
   Heart,
   ShoppingCart,
   ArrowLeft,
+  Loader2,
 } from "lucide-react";
 
-import { Link } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+} from "react-router-dom";
+
+import { supabase } from "../lib/supabase";
 
 import {
   getFavorites,
@@ -15,9 +21,15 @@ import {
 
 import "../styles/Favorites.css";
 
+
 function Favorites() {
+  const navigate = useNavigate();
+
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [removingId, setRemovingId] = useState(null);
+  const [error, setError] = useState("");
+
 
   // =========================================
   // LOAD FAVORITES
@@ -26,21 +38,52 @@ function Favorites() {
   const loadFavorites = async () => {
     try {
       setLoading(true);
+      setError("");
+
+      const {
+        data: sessionData,
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        throw sessionError;
+      }
+
+      const session = sessionData?.session;
+
+      if (!session) {
+        setFavorites([]);
+        setLoading(false);
+        return;
+      }
 
       const data = await getFavorites();
 
-      setFavorites(data);
-    } catch (error) {
+      setFavorites(
+        Array.isArray(data) ? data : []
+      );
+
+    } catch (err) {
       console.error(
         "Failed to load favorites:",
-        error
+        err
       );
 
       setFavorites([]);
+
+      setError(
+        err.message ||
+          "Unable to load your favorites."
+      );
     } finally {
       setLoading(false);
     }
   };
+
+
+  // =========================================
+  // INITIAL LOAD
+  // =========================================
 
   useEffect(() => {
     loadFavorites();
@@ -54,32 +97,83 @@ function Favorites() {
       handleFavoritesUpdate
     );
 
+    window.addEventListener(
+      "storage",
+      handleFavoritesUpdate
+    );
+
     return () => {
       window.removeEventListener(
         "favoritesUpdated",
         handleFavoritesUpdate
       );
+
+      window.removeEventListener(
+        "storage",
+        handleFavoritesUpdate
+      );
     };
   }, []);
+
+
+  // =========================================
+  // AUTH STATE CHANGE
+  // =========================================
+
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
+      () => {
+        loadFavorites();
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
 
   // =========================================
   // REMOVE FAVORITE
   // =========================================
 
   const handleRemove = async (productId) => {
-    const success =
+    try {
+      setRemovingId(productId);
+      setError("");
+
       await removeFromFavorites(productId);
 
-    if (success) {
-      setFavorites((currentFavorites) =>
-        currentFavorites.filter(
-          (product) =>
-            String(product.id) !==
-            String(productId)
-        )
+      setFavorites(
+        (currentFavorites) =>
+          currentFavorites.filter(
+            (product) =>
+              String(product.id) !==
+              String(productId)
+          )
       );
+
+      window.dispatchEvent(
+        new Event("favoritesUpdated")
+      );
+
+    } catch (err) {
+      console.error(
+        "Remove favorite error:",
+        err
+      );
+
+      setError(
+        err.message ||
+          "Unable to remove favorite."
+      );
+    } finally {
+      setRemovingId(null);
     }
   };
+
 
   // =========================================
   // LOADING
@@ -92,7 +186,10 @@ function Favorites() {
         <div className="favorites-empty">
 
           <div className="favorites-empty-icon">
-            <Heart size={34} />
+            <Loader2
+              size={34}
+              className="favorites-spinner"
+            />
           </div>
 
           <h1>
@@ -109,6 +206,89 @@ function Favorites() {
       </main>
     );
   }
+
+
+  // =========================================
+  // LOGIN REQUIRED
+  // =========================================
+
+  const hasLoginError =
+    error &&
+    (
+      error.toLowerCase().includes("login") ||
+      error.toLowerCase().includes("unauthorized") ||
+      error.toLowerCase().includes("authentication")
+    );
+
+  if (hasLoginError) {
+    return (
+      <main className="favorites-page">
+
+        <div className="favorites-empty">
+
+          <div className="favorites-empty-icon">
+            <Heart size={34} />
+          </div>
+
+          <h1>
+            Login to View Favorites
+          </h1>
+
+          <p>
+            Please login to save and view
+            your favorite Bee Pure products.
+          </p>
+
+          <Link
+            to="/login"
+            className="favorites-shop-button"
+          >
+            Login
+          </Link>
+
+        </div>
+
+      </main>
+    );
+  }
+
+
+  // =========================================
+  // ERROR
+  // =========================================
+
+  if (error) {
+    return (
+      <main className="favorites-page">
+
+        <div className="favorites-empty">
+
+          <div className="favorites-empty-icon">
+            <Heart size={34} />
+          </div>
+
+          <h1>
+            Unable to Load Favorites
+          </h1>
+
+          <p>
+            {error}
+          </p>
+
+          <button
+            type="button"
+            className="favorites-shop-button"
+            onClick={loadFavorites}
+          >
+            Try Again
+          </button>
+
+        </div>
+
+      </main>
+    );
+  }
+
 
   // =========================================
   // EMPTY
@@ -145,6 +325,7 @@ function Favorites() {
       </main>
     );
   }
+
 
   // =========================================
   // PAGE
@@ -190,106 +371,156 @@ function Favorites() {
 
         <div className="favorites-grid">
 
-          {favorites.map((product) => (
+          {favorites.map((product) => {
 
-            <article
-              className="favorite-card"
-              key={product.id}
-            >
+            const isRemoving =
+              String(removingId) ===
+              String(product.id);
 
-              {/* IMAGE */}
+            return (
+              <article
+                className="favorite-card"
+                key={product.id}
+              >
 
-              <div className="favorite-image">
+                {/* IMAGE */}
 
-                <Link
-                  to={`/product/${product.id}`}
-                >
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                  />
-                </Link>
+                <div className="favorite-image">
 
-                <button
-                  type="button"
-                  className="favorite-remove"
-                  onClick={() =>
-                    handleRemove(product.id)
-                  }
-                  aria-label={`Remove ${product.name} from favorites`}
-                >
-                  <Heart
-                    size={18}
-                    fill="currentColor"
-                  />
-                </button>
+                  <Link
+                    to={`/product/${product.id}`}
+                  >
+                    <img
+                      src={
+                        product.image ||
+                        "/products/img1.png"
+                      }
+                      alt={
+                        product.name ||
+                        "Bee Pure product"
+                      }
+                      loading="lazy"
+                    />
+                  </Link>
 
-              </div>
+                  <button
+                    type="button"
+                    className="favorite-remove"
+                    onClick={() =>
+                      handleRemove(product.id)
+                    }
+                    disabled={isRemoving}
+                    aria-label={
+                      `Remove ${
+                        product.name
+                      } from favorites`
+                    }
+                  >
+
+                    {isRemoving ? (
+                      <Loader2
+                        size={18}
+                        className="favorites-spinner"
+                      />
+                    ) : (
+                      <Heart
+                        size={18}
+                        fill="currentColor"
+                      />
+                    )}
+
+                  </button>
+
+                </div>
 
 
-              {/* CONTENT */}
+                {/* CONTENT */}
 
-              <div className="favorite-content">
+                <div className="favorite-content">
 
-                <span className="favorite-category">
-                  {product.category}
-                </span>
-
-                <Link
-                  to={`/product/${product.id}`}
-                  className="favorite-name"
-                >
-                  {product.name}
-                </Link>
-
-
-                {/* RATING */}
-
-                <div className="favorite-rating">
-
-                  <span>
-                    {"★".repeat(product.rating)}
+                  <span className="favorite-category">
+                    {product.category ||
+                      "Bee Pure"}
                   </span>
 
-                  <small>
-                    {product.rating}.0 / 5
-                  </small>
+                  <Link
+                    to={`/product/${product.id}`}
+                    className="favorite-name"
+                  >
+                    {product.name}
+                  </Link>
+
+
+                  {/* RATING */}
+
+                  <div className="favorite-rating">
+
+                    <span>
+                      {"★".repeat(
+                        Math.max(
+                          0,
+                          Math.min(
+                            5,
+                            Math.round(
+                              Number(
+                                product.rating || 0
+                              )
+                            )
+                          )
+                        )
+                      )}
+                    </span>
+
+                    <small>
+                      {Number(
+                        product.rating || 0
+                      ).toFixed(1)}{" "}
+                      / 5
+                    </small>
+
+                  </div>
+
+
+                  {/* PRICE */}
+
+                  <div className="favorite-price">
+
+                    <strong>
+                      ₹
+                      {Number(
+                        product.price || 0
+                      ).toLocaleString("en-IN")}
+                    </strong>
+
+                    {product.oldPrice && (
+                      <del>
+                        ₹
+                        {Number(
+                          product.oldPrice
+                        ).toLocaleString(
+                          "en-IN"
+                        )}
+                      </del>
+                    )}
+
+                  </div>
+
+
+                  {/* VIEW PRODUCT */}
+
+                  <Link
+                    to={`/product/${product.id}`}
+                    className="favorite-cart-button"
+                  >
+                    <ShoppingCart size={16} />
+                    View Product
+                  </Link>
 
                 </div>
 
-
-                {/* PRICE */}
-
-                <div className="favorite-price">
-
-                  <strong>
-                    ₹{product.price}
-                  </strong>
-
-                  {product.oldPrice && (
-                    <del>
-                      ₹{product.oldPrice}
-                    </del>
-                  )}
-
-                </div>
-
-
-                {/* VIEW PRODUCT */}
-
-                <Link
-                  to={`/product/${product.id}`}
-                  className="favorite-cart-button"
-                >
-                  <ShoppingCart size={16} />
-                  View Product
-                </Link>
-
-              </div>
-
-            </article>
-
-          ))}
+              </article>
+            );
+          })}
 
         </div>
 

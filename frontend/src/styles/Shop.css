@@ -897,3 +897,126 @@
   }
 
 }
+/* =========================================
+   SHOP RESULTS INFO
+========================================= */
+
+.shop-results-info {
+  margin: 25px 0 18px;
+
+  color: #81796b;
+
+  font-size: 13px;
+  font-weight: 600;
+}
+
+
+/* =========================================
+   LOADING
+========================================= */
+
+.shop-loading {
+  min-height: 50vh;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: #173521;
+
+  font-size: 16px;
+  font-weight: 600;
+}
+
+
+/* =========================================
+   ERROR
+========================================= */
+
+.shop-error {
+  min-height: 50vh;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  text-align: center;
+}
+
+.shop-error h2 {
+  margin-bottom: 10px;
+
+  color: #173521;
+
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+}
+
+.shop-error p {
+  margin-bottom: 20px;
+
+  color: #696257;
+}
+
+.shop-error button {
+  padding: 10px 18px;
+
+  border: 0;
+  border-radius: 8px;
+
+  background: #145b34;
+
+  color: #ffffff;
+
+  cursor: pointer;
+
+  font-weight: 700;
+}
+
+
+/* =========================================
+   EMPTY
+========================================= */
+
+.shop-empty {
+  padding: 80px 20px;
+
+  text-align: center;
+}
+
+.shop-empty h2 {
+  margin-bottom: 10px;
+
+  color: #173521;
+
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+}
+
+.shop-empty p {
+  color: #696257;
+}
+
+
+/* =========================================
+   LOADING SPINNER
+========================================= */
+
+.shop-add-cart .spin {
+  animation: shopSpin 0.8s linear infinite;
+}
+
+@keyframes shopSpin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
