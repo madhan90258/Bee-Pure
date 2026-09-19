@@ -1,2081 +1,1821 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-
-import {
-  Plus,
-  Search,
-  Pencil,
-  Trash2,
-  X,
-  Image as ImageIcon,
-  Video,
-  Upload,
-  Package,
-  CheckCircle,
-  AlertCircle,
-  ArrowLeft,
-} from "lucide-react";
-
-import {
-  getProducts,
-  saveProducts,
-  removeProductFromCustomerData,
-} from "../utils/products";
-
-import {
-  Link,
-} from "react-router-dom";
-
+import React, { useEffect, useMemo, useState } from "react";
+import { supabase } from "../lib/supabase";
 import "../styles/SellerProducts.css";
 
+const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-// =====================================================
-// EMPTY FORM
-// =====================================================
+const STORAGE_BUCKET = "product-images";
 
 const emptyForm = {
+  id: null,
   name: "",
+  slug: "",
   description: "",
-  category: "",
+  category_id: "",
+  farmer_id: "",
   price: "",
-  oldPrice: "",
-  stockStatus: "in-stock",
-  stockCount: "",
+  old_price: "",
+  stock_quantity: "",
+  rating: "0",
+  is_active: true,
 };
 
+const getAuthHeaders = async () => {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-// =====================================================
-// COMPONENT
-// =====================================================
+  if (!session?.access_token) {
+    throw new Error("Your session has expired. Please login again.");
+  }
 
-function SellerProducts() {
+  return {
+    Authorization: `Bearer ${session.access_token}`,
+    "Content-Type": "application/json",
+  };
+};
 
-  // ===================================================
-  // STATE
-  // ===================================================
+const getImageUrl = (storagePath) => {
+  if (!storagePath) return "";
 
-  const [
-    products,
-    setProducts,
-  ] = useState([]);
+  if (
+    storagePath.startsWith("http://") ||
+    storagePath.startsWith("https://")
+  ) {
+    return storagePath;
+  }
 
-  const [
-    searchQuery,
-    setSearchQuery,
-  ] = useState("");
+  const {
+    data: { publicUrl },
+  } = supabase.storage
+    .from(STORAGE_BUCKET)
+    .getPublicUrl(storagePath);
 
-  const [
-    categoryFilter,
-    setCategoryFilter,
-  ] = useState("All");
+  return publicUrl;
+};
 
-  const [
-    isModalOpen,
-    setIsModalOpen,
-  ] = useState(false);
+const slugify = (value) => {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+};
 
-  const [
-    editingProductId,
-    setEditingProductId,
-  ] = useState(null);
+const formatPrice = (value) => {
+  const number = Number(value);
 
-  const [
-    form,
-    setForm,
-  ] = useState(emptyForm);
+  if (!Number.isFinite(number)) {
+    return "₹0";
+  }
 
-  const [
-    imageFiles,
-    setImageFiles,
-  ] = useState([]);
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(number);
+};
 
-  const [
-    imagePreviews,
-    setImagePreviews,
-  ] = useState([]);
+const getCategoryName = (product) => {
+  return (
+    product?.categories?.name ||
+    product?.category?.name ||
+    "Uncategorized"
+  );
+};
 
-  const [
-    videoFiles,
-    setVideoFiles,
-  ] = useState([]);
+const getFarmerName = (product) => {
+  return product?.farmers?.name || "No farmer";
+};
 
-  const [
-    videoPreviews,
-    setVideoPreviews,
-  ] = useState([]);
+const getProductImages = (product) => {
+  const images = Array.isArray(product?.product_images)
+    ? [...product.product_images]
+    : [];
 
-  const [
-    formError,
-    setFormError,
-  ] = useState("");
+  images.sort((a, b) => {
+    if (a.is_primary && !b.is_primary) return -1;
+    if (!a.is_primary && b.is_primary) return 1;
+    return 0;
+  });
 
-  const [
-    successMessage,
-    setSuccessMessage,
-  ] = useState("");
+  return images;
+};
 
-  const [
-    deleteProductId,
-    setDeleteProductId,
-  ] = useState(null);
+const SellerProducts = () => {
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [farmers, setFarmers] = useState([]);
 
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
 
-  const imageInputRef =
-    useRef(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const videoInputRef =
-    useRef(null);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
+  const [showModal, setShowModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
 
-  // ===================================================
-  // LOAD + LISTEN FOR PRODUCT CHANGES
-  // ===================================================
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [productToDelete, setProductToDelete] = useState(null);
+
+  const [selectedProduct, setSelectedProduct] = useState(null);
+
+  const [form, setForm] = useState(emptyForm);
+
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
+
+  const [selectedVideos, setSelectedVideos] = useState([]);
 
   useEffect(() => {
-
-    const loadProducts = () => {
-
-      setProducts(
-        getProducts()
-      );
-
-    };
-
-
-    // Initial load
-
-    loadProducts();
-
-
-    // Same browser/tab updates
-
-    window.addEventListener(
-      "beePureProductsUpdated",
-      loadProducts
-    );
-
-
-    // Other browser tabs
-
-    window.addEventListener(
-      "storage",
-      loadProducts
-    );
-
-
-    return () => {
-
-      window.removeEventListener(
-        "beePureProductsUpdated",
-        loadProducts
-      );
-
-      window.removeEventListener(
-        "storage",
-        loadProducts
-      );
-
-    };
-
+    loadInitialData();
   }, []);
 
+  const loadInitialData = async () => {
+    try {
+      setLoading(true);
+      setError("");
 
-  // ===================================================
-  // CATEGORIES
-  // ===================================================
-
-  const categories = [
-    "Honey",
-    "Natural Sweeteners",
-    "Healthy Foods",
-    "Farm Products",
-    "Gift Boxes",
-  ];
-
-
-  // ===================================================
-  // SAVE PRODUCTS
-  // ===================================================
-
-  const handleSaveProducts = (
-    updatedProducts
-  ) => {
-
-    const savedProducts =
-      saveProducts(
-        updatedProducts
-      );
-
-    setProducts(
-      savedProducts
-    );
-
+      await Promise.all([
+        loadProducts(),
+        loadCategories(),
+        loadFarmers(),
+      ]);
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Unable to load seller products.");
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const loadProducts = async () => {
+    const headers = await getAuthHeaders();
 
-  // ===================================================
-  // FORM CHANGE
-  // ===================================================
+    const response = await fetch(
+      `${API_URL}/api/seller/products`,
+      {
+        headers,
+      }
+    );
 
-  const handleChange = (
-    event
-  ) => {
+    const data = await response.json();
 
-    const {
-      name,
-      value,
-    } = event.target;
+    if (!response.ok) {
+      throw new Error(
+        data.message || "Unable to fetch products."
+      );
+    }
 
+    setProducts(data.products || []);
+  };
 
-    setForm(
-      (previous) => ({
-        ...previous,
-        [name]: value,
+  const loadCategories = async () => {
+    const response = await fetch(
+      `${API_URL}/api/categories`
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.message || "Unable to fetch categories."
+      );
+    }
+
+    setCategories(data.categories || []);
+  };
+
+  const loadFarmers = async () => {
+    const headers = await getAuthHeaders();
+
+    const response = await fetch(
+      `${API_URL}/api/farmers`,
+      {
+        headers,
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.message || "Unable to fetch farmers."
+      );
+    }
+
+    setFarmers(data.farmers || []);
+  };
+
+  const filteredProducts = useMemo(() => {
+    const searchValue = search.trim().toLowerCase();
+
+    return products.filter((product) => {
+      const matchesSearch =
+        !searchValue ||
+        product.name?.toLowerCase().includes(searchValue) ||
+        product.slug?.toLowerCase().includes(searchValue);
+
+      const matchesCategory =
+        categoryFilter === "all" ||
+        product.category_id === categoryFilter;
+
+      return matchesSearch && matchesCategory;
+    });
+  }, [products, search, categoryFilter]);
+
+  const openAddModal = () => {
+    setEditingProduct(null);
+
+    setForm({
+      ...emptyForm,
+      farmer_id: farmers[0]?.id || "",
+    });
+
+    setSelectedImages([]);
+    setSelectedVideos([]);
+
+    setError("");
+    setSuccess("");
+    setShowModal(true);
+  };
+
+  const openEditModal = (product) => {
+    setEditingProduct(product);
+
+    setForm({
+      id: product.id,
+      name: product.name || "",
+      slug: product.slug || "",
+      description: product.description || "",
+      category_id: product.category_id || "",
+      farmer_id: product.farmer_id || "",
+      price: product.price ?? "",
+      old_price: product.old_price ?? "",
+      stock_quantity: product.stock_quantity ?? 0,
+      rating: product.rating ?? 0,
+      is_active:
+        product.is_active === undefined
+          ? true
+          : product.is_active,
+    });
+
+    setSelectedImages([]);
+    setSelectedVideos([]);
+
+    setError("");
+    setSuccess("");
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    if (saving) return;
+
+    setShowModal(false);
+    setEditingProduct(null);
+    setSelectedImages([]);
+    setSelectedVideos([]);
+    setForm(emptyForm);
+  };
+
+  const handleFormChange = (event) => {
+    const { name, value, type, checked } =
+      event.target;
+
+    setForm((current) => ({
+      ...current,
+      [name]:
+        type === "checkbox"
+          ? checked
+          : value,
+    }));
+  };
+
+  const handleNameChange = (event) => {
+    const value = event.target.value;
+
+    setForm((current) => ({
+      ...current,
+      name: value,
+      slug:
+        current.id || current.slug
+          ? current.slug
+          : slugify(value),
+    }));
+  };
+
+  const handleImageSelection = (event) => {
+    const files = Array.from(
+      event.target.files || []
+    );
+
+    const validFiles = files.filter((file) =>
+      file.type.startsWith("image/")
+    );
+
+    const mappedFiles = validFiles.map(
+      (file) => ({
+        id:
+          `${file.name}-${file.lastModified}-${Math.random()}`,
+        file,
+        preview: URL.createObjectURL(file),
       })
     );
 
+    setSelectedImages((current) => [
+      ...current,
+      ...mappedFiles,
+    ]);
 
-    setFormError("");
-
+    event.target.value = "";
   };
 
+  const removeSelectedImage = (id) => {
+    setSelectedImages((current) => {
+      const image = current.find(
+        (item) => item.id === id
+      );
 
-  // ===================================================
-  // OPEN ADD MODAL
-  // ===================================================
+      if (image?.preview) {
+        URL.revokeObjectURL(image.preview);
+      }
 
-  const openAddModal = () => {
-
-    setEditingProductId(null);
-
-    setForm(
-      emptyForm
-    );
-
-    setImageFiles([]);
-
-    setImagePreviews([]);
-
-    setVideoFiles([]);
-
-    setVideoPreviews([]);
-
-    setFormError("");
-
-    setIsModalOpen(true);
-
-  };
-
-
-  // ===================================================
-  // OPEN EDIT MODAL
-  // ===================================================
-
-  const openEditModal = (
-    product
-  ) => {
-
-    setEditingProductId(
-      product.id
-    );
-
-
-    setForm({
-
-      name:
-        product.name || "",
-
-      description:
-        product.description || "",
-
-      category:
-        product.category || "",
-
-      price:
-        product.price ?? "",
-
-      oldPrice:
-        product.oldPrice ?? "",
-
-      stockStatus:
-        product.stockStatus ||
-        "in-stock",
-
-      stockCount:
-        product.stockCount ??
-        "",
-
+      return current.filter(
+        (item) => item.id !== id
+      );
     });
-
-
-    setImageFiles([]);
-
-    setImagePreviews(
-      product.images || []
-    );
-
-    setVideoFiles([]);
-
-    setVideoPreviews(
-      product.videos || []
-    );
-
-    setFormError("");
-
-    setIsModalOpen(true);
-
   };
 
-
-  // ===================================================
-  // CLOSE MODAL
-  // ===================================================
-
-  const closeModal = () => {
-
-    setIsModalOpen(false);
-
-    setEditingProductId(null);
-
-    setForm(
-      emptyForm
+  const handleVideoSelection = (event) => {
+    const files = Array.from(
+      event.target.files || []
     );
 
-    setImageFiles([]);
-
-    setImagePreviews([]);
-
-    setVideoFiles([]);
-
-    setVideoPreviews([]);
-
-    setFormError("");
-
-  };
-
-
-  // ===================================================
-  // IMAGE SELECT
-  // ===================================================
-
-  const handleImageChange = (
-    event
-  ) => {
-
-    const files =
-      Array.from(
-        event.target.files || []
-      );
-
-
-    if (!files.length) {
-      return;
-    }
-
-
-    const validFiles =
-      files.filter(
-        (file) =>
-          file.type.startsWith(
-            "image/"
-          )
-      );
-
-
-    if (!validFiles.length) {
-
-      setFormError(
-        "Please select valid image files."
-      );
-
-      return;
-    }
-
-
-    const newPreviews =
-      validFiles.map(
-        (file) =>
-          URL.createObjectURL(
-            file
-          )
-      );
-
-
-    setImageFiles(
-      (previous) => [
-        ...previous,
-        ...validFiles,
-      ]
+    const validFiles = files.filter((file) =>
+      file.type.startsWith("video/")
     );
 
-
-    setImagePreviews(
-      (previous) => [
-        ...previous,
-        ...newPreviews,
-      ]
+    const mappedFiles = validFiles.map(
+      (file) => ({
+        id:
+          `${file.name}-${file.lastModified}-${Math.random()}`,
+        file,
+        preview: URL.createObjectURL(file),
+      })
     );
 
+    setSelectedVideos((current) => [
+      ...current,
+      ...mappedFiles,
+    ]);
 
     event.target.value = "";
-
   };
 
-
-  // ===================================================
-  // VIDEO SELECT
-  // ===================================================
-
-  const handleVideoChange = (
-    event
-  ) => {
-
-    const files =
-      Array.from(
-        event.target.files || []
+  const removeSelectedVideo = (id) => {
+    setSelectedVideos((current) => {
+      const video = current.find(
+        (item) => item.id === id
       );
 
-
-    if (!files.length) {
-      return;
-    }
-
-
-    const validFiles =
-      files.filter(
-        (file) =>
-          file.type.startsWith(
-            "video/"
-          )
-      );
-
-
-    if (!validFiles.length) {
-
-      setFormError(
-        "Please select valid video files."
-      );
-
-      return;
-    }
-
-
-    const newPreviews =
-      validFiles.map(
-        (file) =>
-          URL.createObjectURL(
-            file
-          )
-      );
-
-
-    setVideoFiles(
-      (previous) => [
-        ...previous,
-        ...validFiles,
-      ]
-    );
-
-
-    setVideoPreviews(
-      (previous) => [
-        ...previous,
-        ...newPreviews,
-      ]
-    );
-
-
-    event.target.value = "";
-
-  };
-
-
-  // ===================================================
-  // REMOVE IMAGE
-  // ===================================================
-
-  const removeImage = (
-    index
-  ) => {
-
-    setImagePreviews(
-      (previous) =>
-        previous.filter(
-          (_, imageIndex) =>
-            imageIndex !== index
-        )
-    );
-
-
-    setImageFiles(
-      (previous) => {
-
-        if (
-          index >=
-          previous.length
-        ) {
-          return previous;
-        }
-
-
-        return previous.filter(
-          (_, fileIndex) =>
-            fileIndex !== index
-        );
-
+      if (video?.preview) {
+        URL.revokeObjectURL(video.preview);
       }
-    );
 
+      return current.filter(
+        (item) => item.id !== id
+      );
+    });
   };
 
-
-  // ===================================================
-  // REMOVE VIDEO
-  // ===================================================
-
-  const removeVideo = (
-    index
-  ) => {
-
-    setVideoPreviews(
-      (previous) =>
-        previous.filter(
-          (_, videoIndex) =>
-            videoIndex !== index
-        )
-    );
-
-
-    setVideoFiles(
-      (previous) => {
-
-        if (
-          index >=
-          previous.length
-        ) {
-          return previous;
-        }
-
-
-        return previous.filter(
-          (_, fileIndex) =>
-            fileIndex !== index
-        );
-
-      }
-    );
-
-  };
-
-
-  // ===================================================
-  // SUBMIT PRODUCT
-  // ===================================================
-
-  const handleSubmit = (
-    event
-  ) => {
-
+  const saveProduct = async (event) => {
     event.preventDefault();
 
-    setFormError("");
+    try {
+      setSaving(true);
+      setError("");
+      setSuccess("");
 
+      if (!form.name.trim()) {
+        throw new Error("Product name is required.");
+      }
 
-    // -----------------------------------------------
-    // VALIDATION
-    // -----------------------------------------------
+      if (!form.category_id) {
+        throw new Error("Please select a category.");
+      }
 
-    if (!form.name.trim()) {
+      if (!form.farmer_id) {
+        throw new Error("Please select a farmer.");
+      }
 
-      setFormError(
-        "Product name is required."
+      if (!form.price || Number(form.price) <= 0) {
+        throw new Error(
+          "Price must be greater than ₹0."
+        );
+      }
+
+      if (
+        form.old_price !== "" &&
+        form.old_price !== null &&
+        Number(form.old_price) < 0
+      ) {
+        throw new Error(
+          "Old price cannot be negative."
+        );
+      }
+
+      if (
+        form.stock_quantity === "" ||
+        Number(form.stock_quantity) < 0 ||
+        !Number.isInteger(
+          Number(form.stock_quantity)
+        )
+      ) {
+        throw new Error(
+          "Stock quantity must be a non-negative integer."
+        );
+      }
+
+      const headers = await getAuthHeaders();
+
+      const payload = {
+        name: form.name.trim(),
+        slug:
+          form.slug.trim() ||
+          slugify(form.name),
+        description:
+          form.description?.trim() || null,
+        category_id: form.category_id,
+        farmer_id: form.farmer_id,
+        price: Number(form.price),
+        old_price:
+          form.old_price === "" ||
+          form.old_price === null
+            ? null
+            : Number(form.old_price),
+        stock_quantity: Number(
+          form.stock_quantity
+        ),
+        rating:
+          form.rating === ""
+            ? 0
+            : Number(form.rating),
+        is_active: Boolean(form.is_active),
+      };
+
+      let response;
+
+      if (editingProduct?.id) {
+        response = await fetch(
+          `${API_URL}/api/seller/products/${editingProduct.id}`,
+          {
+            method: "PATCH",
+            headers,
+            body: JSON.stringify(payload),
+          }
+        );
+      } else {
+        response = await fetch(
+          `${API_URL}/api/seller/products`,
+          {
+            method: "POST",
+            headers,
+            body: JSON.stringify(payload),
+          }
+        );
+      }
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Unable to save product."
+        );
+      }
+
+      const savedProduct =
+        data.product;
+
+      /*
+       * Upload selected images only after the
+       * product has been successfully created.
+       */
+      if (
+        selectedImages.length > 0 &&
+        savedProduct?.id
+      ) {
+        await uploadProductImages(
+          savedProduct.id
+        );
+      }
+
+      await loadProducts();
+
+      setSuccess(
+        editingProduct
+          ? "Product updated successfully."
+          : "Product created successfully."
       );
 
+      setTimeout(() => {
+        closeModal();
+      }, 700);
+    } catch (err) {
+      console.error(err);
+      setError(
+        err.message ||
+          "Unable to save product."
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const uploadProductImages = async (
+    productId
+  ) => {
+    if (!selectedImages.length) {
       return;
     }
 
+    try {
+      setUploadingImages(true);
 
-    if (
-      !form.description.trim()
-    ) {
+      for (
+        let index = 0;
+        index < selectedImages.length;
+        index++
+      ) {
+        const selected =
+          selectedImages[index];
 
-      setFormError(
-        "Product description is required."
-      );
+        const formData = new FormData();
 
-      return;
-    }
+        formData.append(
+          "image",
+          selected.file
+        );
 
+        formData.append(
+          "is_primary",
+          String(index === 0)
+        );
 
-    if (!form.category) {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-      setFormError(
-        "Please select a category."
-      );
+        if (!session?.access_token) {
+          throw new Error(
+            "Your session has expired. Please login again."
+          );
+        }
 
-      return;
-    }
-
-
-    if (
-      form.price === "" ||
-      Number(form.price) <= 0
-    ) {
-
-      setFormError(
-        "Please enter a valid product price."
-      );
-
-      return;
-    }
-
-
-    if (
-      form.stockCount === "" ||
-      Number(form.stockCount) < 0
-    ) {
-
-      setFormError(
-        "Please enter a valid stock count."
-      );
-
-      return;
-    }
-
-
-    if (
-      imagePreviews.length === 0
-    ) {
-
-      setFormError(
-        "Please add at least one product image."
-      );
-
-      return;
-    }
-
-
-    // -----------------------------------------------
-    // PRODUCT DATA
-    // -----------------------------------------------
-
-    const productData = {
-
-      name:
-        form.name.trim(),
-
-      description:
-        form.description.trim(),
-
-      category:
-        form.category,
-
-      price:
-        Number(form.price),
-
-      oldPrice:
-        form.oldPrice === ""
-          ? null
-          : Number(form.oldPrice),
-
-      images:
-        imagePreviews,
-
-      videos:
-        videoPreviews,
-
-      stockStatus:
-        form.stockStatus,
-
-      stockCount:
-        Number(form.stockCount),
-
-    };
-
-
-    // -----------------------------------------------
-    // EDIT
-    // -----------------------------------------------
-
-    if (
-      editingProductId !==
-      null
-    ) {
-
-      const updatedProducts =
-        products.map(
-          (product) => {
-
-            if (
-              String(product.id) ===
-              String(
-                editingProductId
-              )
-            ) {
-
-              return {
-                ...product,
-                ...productData,
-              };
-
+        const response =
+          await fetch(
+            `${API_URL}/api/seller/products/${productId}/images`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${session.access_token}`,
+              },
+              body: formData,
             }
+          );
 
+        const data =
+          await response.json();
 
-            return product;
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              "Unable to upload product image."
+          );
+        }
+      }
+    } finally {
+      setUploadingImages(false);
+    }
+  };
 
+  const confirmDelete = (product) => {
+    setProductToDelete(product);
+    setShowDeleteModal(true);
+  };
+
+  const deleteProduct = async () => {
+    if (!productToDelete?.id) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError("");
+
+      const headers =
+        await getAuthHeaders();
+
+      const response = await fetch(
+        `${API_URL}/api/seller/products/${productToDelete.id}`,
+        {
+          method: "DELETE",
+          headers,
+        }
+      );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Unable to deactivate product."
+        );
+      }
+
+      await loadProducts();
+
+      setShowDeleteModal(false);
+      setProductToDelete(null);
+
+      setSuccess(
+        "Product deactivated successfully."
+      );
+    } catch (err) {
+      console.error(err);
+      setError(
+        err.message ||
+          "Unable to deactivate product."
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openImageManager = (product) => {
+    setSelectedProduct(product);
+    setSelectedImages([]);
+    setShowImageModal(true);
+  };
+
+  const closeImageManager = () => {
+    if (uploadingImages) return;
+
+    setShowImageModal(false);
+    setSelectedProduct(null);
+    setSelectedImages([]);
+  };
+
+  const uploadImagesFromManager = async () => {
+    if (
+      !selectedProduct?.id ||
+      selectedImages.length === 0
+    ) {
+      return;
+    }
+
+    try {
+      setUploadingImages(true);
+      setError("");
+      setSuccess("");
+
+      /*
+       * When adding images through the manager,
+       * make the first uploaded image primary only
+       * when the product currently has no images.
+       */
+      const existingImages =
+        getProductImages(
+          selectedProduct
+        );
+
+      for (
+        let index = 0;
+        index < selectedImages.length;
+        index++
+      ) {
+        const selected =
+          selectedImages[index];
+
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session?.access_token) {
+          throw new Error(
+            "Your session has expired. Please login again."
+          );
+        }
+
+        const formData =
+          new FormData();
+
+        formData.append(
+          "image",
+          selected.file
+        );
+
+        formData.append(
+          "is_primary",
+          String(
+            existingImages.length === 0 &&
+              index === 0
+          )
+        );
+
+        const response =
+          await fetch(
+            `${API_URL}/api/seller/products/${selectedProduct.id}/images`,
+            {
+              method: "POST",
+              headers: {
+                Authorization:
+                  `Bearer ${session.access_token}`,
+              },
+              body: formData,
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              "Unable to upload image."
+          );
+        }
+      }
+
+      await loadProducts();
+
+      const updatedProduct =
+        products.find(
+          (item) =>
+            item.id ===
+            selectedProduct.id
+        );
+
+      if (updatedProduct) {
+        setSelectedProduct(
+          updatedProduct
+        );
+      }
+
+      setSelectedImages([]);
+
+      setSuccess(
+        "Product images uploaded successfully."
+      );
+    } catch (err) {
+      console.error(err);
+      setError(
+        err.message ||
+          "Unable to upload images."
+      );
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  const deleteProductImage = async (
+    imageId
+  ) => {
+    if (
+      !selectedProduct?.id ||
+      !imageId
+    ) {
+      return;
+    }
+
+    try {
+      setUploadingImages(true);
+      setError("");
+
+      const headers =
+        await getAuthHeaders();
+
+      const response =
+        await fetch(
+          `${API_URL}/api/seller/products/${selectedProduct.id}/images/${imageId}`,
+          {
+            method: "DELETE",
+            headers,
           }
         );
 
+      const data =
+        await response.json();
 
-      handleSaveProducts(
-        updatedProducts
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Unable to delete image."
+        );
+      }
+
+      await loadProducts();
+
+      setSelectedProduct(
+        (current) => {
+          if (!current) {
+            return null;
+          }
+
+          return {
+            ...current,
+            product_images:
+              getProductImages(
+                current
+              ).filter(
+                (image) =>
+                  image.id !==
+                  imageId
+              ),
+          };
+        }
       );
 
-
-      setSuccessMessage(
-        "Product updated successfully."
+      setSuccess(
+        "Product image deleted successfully."
       );
-
+    } catch (err) {
+      console.error(err);
+      setError(
+        err.message ||
+          "Unable to delete image."
+      );
+    } finally {
+      setUploadingImages(false);
     }
-
-
-    // -----------------------------------------------
-    // ADD
-    // -----------------------------------------------
-
-    else {
-
-      const newProduct = {
-
-        id:
-          Date.now(),
-
-        rating:
-          5,
-
-        ...productData,
-
-      };
-
-
-      handleSaveProducts([
-        ...products,
-        newProduct,
-      ]);
-
-
-      setSuccessMessage(
-        "Product added successfully."
-      );
-
-    }
-
-
-    closeModal();
-
-
-    setTimeout(() => {
-
-      setSuccessMessage("");
-
-    }, 3000);
-
   };
 
-
-  // ===================================================
-  // DELETE PRODUCT
-  // ===================================================
-
-  const handleDelete = () => {
-
+  const setPrimaryImage = async (
+    imageId
+  ) => {
     if (
-      deleteProductId ===
-      null
+      !selectedProduct?.id ||
+      !imageId
     ) {
       return;
     }
 
+    try {
+      setUploadingImages(true);
+      setError("");
 
-    const updatedProducts =
-      products.filter(
-        (product) =>
-          String(product.id) !==
-          String(deleteProductId)
-      );
+      const headers =
+        await getAuthHeaders();
 
-
-    // -----------------------------------------------
-    // SAVE PRODUCT LIST
-    // -----------------------------------------------
-
-    handleSaveProducts(
-      updatedProducts
-    );
-
-
-    // -----------------------------------------------
-    // REMOVE FROM CART/FAVORITES
-    // -----------------------------------------------
-
-    removeProductFromCustomerData(
-      deleteProductId
-    );
-
-
-    // -----------------------------------------------
-    // CLOSE DELETE MODAL
-    // -----------------------------------------------
-
-    setDeleteProductId(null);
-
-
-    setSuccessMessage(
-      "Product deleted successfully."
-    );
-
-
-    setTimeout(() => {
-
-      setSuccessMessage("");
-
-    }, 3000);
-
-  };
-
-
-  // ===================================================
-  // FILTER PRODUCTS
-  // ===================================================
-
-  const filteredProducts =
-    products.filter(
-      (product) => {
-
-        const query =
-          searchQuery
-            .trim()
-            .toLowerCase();
-
-
-        const matchesSearch =
-          !query ||
-          String(
-            product.name
-          )
-            .toLowerCase()
-            .includes(query) ||
-          String(
-            product.description
-          )
-            .toLowerCase()
-            .includes(query) ||
-          String(
-            product.category
-          )
-            .toLowerCase()
-            .includes(query);
-
-
-        const matchesCategory =
-          categoryFilter ===
-            "All" ||
-          product.category ===
-            categoryFilter;
-
-
-        return (
-          matchesSearch &&
-          matchesCategory
+      const response =
+        await fetch(
+          `${API_URL}/api/seller/products/${selectedProduct.id}/images/${imageId}/primary`,
+          {
+            method: "PATCH",
+            headers,
+          }
         );
 
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Unable to set primary image."
+        );
       }
-    );
 
+      await loadProducts();
 
-  // ===================================================
-  // FORMAT PRICE
-  // ===================================================
+      setSelectedProduct(
+        (current) => {
+          if (!current) {
+            return null;
+          }
 
-  const formatPrice = (
-    price
-  ) => {
+          return {
+            ...current,
+            product_images:
+              getProductImages(
+                current
+              ).map((image) => ({
+                ...image,
+                is_primary:
+                  image.id ===
+                  imageId,
+              })),
+          };
+        }
+      );
 
-    return Number(
-      price || 0
-    ).toLocaleString(
-      "en-IN"
-    );
-
+      setSuccess(
+        "Primary image updated successfully."
+      );
+    } catch (err) {
+      console.error(err);
+      setError(
+        err.message ||
+          "Unable to update primary image."
+      );
+    } finally {
+      setUploadingImages(false);
+    }
   };
 
-
-  // ===================================================
-  // RENDER
-  // ===================================================
-
   return (
-
-    <main className="seller-products-page">
-
-      <div className="seller-products-container">
-
-
-        {/* ============================================
-            HEADER
-        ============================================= */}
-
-        <div className="seller-products-header">
-
-          <div>
-
-            <p className="seller-products-eyebrow">
-              SELLER DASHBOARD
-            </p>
-
-            <h1>
-              Products
-            </h1>
-
-            <p className="seller-products-subtitle">
-              Add, edit and manage your Bee Pure
-              products and inventory.
-            </p>
-
-          </div>
-
-
-          <div className="seller-products-header-actions">
-
-            <Link
-              to="/seller/account"
-              className="seller-products-back-account"
-            >
-
-              <ArrowLeft size={17} />
-
-              <span>
-                Back to Account
-              </span>
-
-            </Link>
-
-
-            <button
-              type="button"
-              className="seller-add-product-button"
-              onClick={openAddModal}
-            >
-
-              <Plus size={18} />
-
-              Add Product
-
-            </button>
-
-          </div>
-
+    <div className="seller-products-page">
+      <div className="seller-products-header">
+        <div>
+          <h1>Products</h1>
+          <p>
+            Manage your products,
+            inventory and product images.
+          </p>
         </div>
 
+        <button
+          type="button"
+          className="seller-primary-btn"
+          onClick={openAddModal}
+        >
+          + Add Product
+        </button>
+      </div>
 
-        {/* ============================================
-            SUCCESS
-        ============================================= */}
+      {error && (
+        <div className="seller-alert seller-alert-error">
+          {error}
+        </div>
+      )}
 
-        {successMessage && (
+      {success && (
+        <div className="seller-alert seller-alert-success">
+          {success}
+        </div>
+      )}
 
-          <div className="seller-product-success">
+      <div className="seller-products-toolbar">
+        <input
+          type="text"
+          value={search}
+          onChange={(event) =>
+            setSearch(event.target.value)
+          }
+          placeholder="Search products..."
+        />
 
-            <CheckCircle size={18} />
+        <select
+          value={categoryFilter}
+          onChange={(event) =>
+            setCategoryFilter(
+              event.target.value
+            )
+          }
+        >
+          <option value="all">
+            All Categories
+          </option>
 
-            <span>
-              {successMessage}
-            </span>
-
-          </div>
-
-        )}
-
-
-        {/* ============================================
-            TOOLBAR
-        ============================================= */}
-
-        <div className="seller-products-toolbar">
-
-          <div className="seller-product-search">
-
-            <Search size={17} />
-
-            <input
-              type="search"
-              placeholder="Search products..."
-              value={searchQuery}
-              onChange={(event) =>
-                setSearchQuery(
-                  event.target.value
-                )
-              }
-            />
-
-
-            {searchQuery && (
-
-              <button
-                type="button"
-                onClick={() =>
-                  setSearchQuery("")
-                }
-                aria-label="Clear search"
-              >
-                <X size={15} />
-              </button>
-
-            )}
-
-          </div>
-
-
-          <select
-            className="seller-product-category-filter"
-            value={categoryFilter}
-            onChange={(event) =>
-              setCategoryFilter(
-                event.target.value
-              )
-            }
-          >
-
-            <option value="All">
-              All Categories
+          {categories.map((category) => (
+            <option
+              key={category.id}
+              value={category.id}
+            >
+              {category.name}
             </option>
+          ))}
+        </select>
+      </div>
 
+      <div className="seller-products-table-wrapper">
+        {loading ? (
+          <div className="seller-products-loading">
+            Loading products...
+          </div>
+        ) : filteredProducts.length ===
+          0 ? (
+          <div className="seller-products-empty">
+            <h3>No products found</h3>
+            <p>
+              Add your first product to
+              get started.
+            </p>
+          </div>
+        ) : (
+          <table className="seller-products-table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Category</th>
+                <th>Price</th>
+                <th>Stock</th>
+                <th>Status</th>
+                <th>Images</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
 
-            {categories.map(
-              (category) => (
+            <tbody>
+              {filteredProducts.map(
+                (product) => {
+                  const images =
+                    getProductImages(
+                      product
+                    );
 
-                <option
-                  key={category}
-                  value={category}
-                >
-                  {category}
-                </option>
+                  const primaryImage =
+                    images.find(
+                      (image) =>
+                        image.is_primary
+                    ) ||
+                    images[0];
 
-              )
-            )}
-
-          </select>
-
-        </div>
-
-
-        {/* ============================================
-            PRODUCT COUNT
-        ============================================= */}
-
-        <div className="seller-product-count">
-
-          <Package size={16} />
-
-          <span>
-
-            {filteredProducts.length}{" "}
-
-            {filteredProducts.length === 1
-              ? "product"
-              : "products"}
-
-          </span>
-
-        </div>
-
-
-        {/* ============================================
-            PRODUCT TABLE
-        ============================================= */}
-
-        {filteredProducts.length > 0 ? (
-
-          <div className="seller-products-table-wrapper">
-
-            <table className="seller-products-table">
-
-              <thead>
-
-                <tr>
-
-                  <th>
-                    Product
-                  </th>
-
-                  <th>
-                    Category
-                  </th>
-
-                  <th>
-                    Price
-                  </th>
-
-                  <th>
-                    Stock
-                  </th>
-
-                  <th>
-                    Media
-                  </th>
-
-                  <th>
-                    Actions
-                  </th>
-
-                </tr>
-
-              </thead>
-
-
-              <tbody>
-
-                {filteredProducts.map(
-                  (product) => (
-
+                  return (
                     <tr
                       key={product.id}
                     >
-
-                      {/* PRODUCT */}
-
                       <td>
-
-                        <div className="seller-product-info">
-
-                          <div className="seller-product-thumbnail">
-
-                            {product.images?.[0] ? (
-
-                              <img
-                                src={
-                                  product.images[0]
-                                }
-                                alt={
-                                  product.name
-                                }
-                              />
-
-                            ) : (
-
-                              <ImageIcon
-                                size={22}
-                              />
-
-                            )}
-
-                          </div>
-
-
-                          <div>
-
-                            <h3>
-                              {product.name}
-                            </h3>
-
-                            <p>
-                              {product.description}
-                            </p>
-
-                          </div>
-
-                        </div>
-
-                      </td>
-
-
-                      {/* CATEGORY */}
-
-                      <td>
-
-                        <span className="seller-product-category">
-
-                          {product.category}
-
-                        </span>
-
-                      </td>
-
-
-                      {/* PRICE */}
-
-                      <td>
-
-                        <div className="seller-product-price">
-
-                          <strong>
-
-                            ₹
-                            {formatPrice(
-                              product.price
-                            )}
-
-                          </strong>
-
-
-                          {product.oldPrice && (
-
-                            <del>
-
-                              ₹
-                              {formatPrice(
-                                product.oldPrice
+                        <div className="seller-product-name-cell">
+                          {primaryImage ? (
+                            <img
+                              src={getImageUrl(
+                                primaryImage.storage_path
                               )}
-
-                            </del>
-
+                              alt={
+                                product.name
+                              }
+                              className="seller-product-thumb"
+                            />
+                          ) : (
+                            <div className="seller-product-thumb seller-product-thumb-empty">
+                              No image
+                            </div>
                           )}
 
-                        </div>
+                          <div>
+                            <strong>
+                              {
+                                product.name
+                              }
+                            </strong>
 
+                            <span>
+                              {
+                                product.slug
+                              }
+                            </span>
+                          </div>
+                        </div>
                       </td>
 
-
-                      {/* STOCK */}
-
                       <td>
-
-                        <div className="seller-stock-cell">
-
-                          <span
-                            className={`seller-stock-status ${
-                              product.stockStatus ===
-                              "in-stock"
-                                ? "in"
-                                : "out"
-                            }`}
-                          >
-
-                            {product.stockStatus ===
-                            "in-stock" ? (
-
-                              <>
-                                <CheckCircle
-                                  size={13}
-                                />
-
-                                In Stock
-                              </>
-
-                            ) : (
-
-                              <>
-                                <AlertCircle
-                                  size={13}
-                                />
-
-                                Out of Stock
-                              </>
-
-                            )}
-
-                          </span>
-
-
-                          <small>
-                            {product.stockCount} units
-                          </small>
-
-                        </div>
-
+                        {
+                          getCategoryName(
+                            product
+                          )
+                        }
                       </td>
 
-
-                      {/* MEDIA */}
-
                       <td>
+                        {formatPrice(
+                          product.price
+                        )}
 
-                        <div className="seller-product-media-count">
-
-                          <span>
-
-                            <ImageIcon
-                              size={14}
-                            />
-
-                            {
-                              product.images
-                                ?.length || 0
-                            }
-
-                          </span>
-
-
-                          <span>
-
-                            <Video
-                              size={14}
-                            />
-
-                            {
-                              product.videos
-                                ?.length || 0
-                            }
-
-                          </span>
-
-                        </div>
-
+                        {product.old_price !==
+                          null &&
+                          product.old_price !==
+                            undefined && (
+                            <span className="seller-old-price">
+                              {formatPrice(
+                                product.old_price
+                              )}
+                            </span>
+                          )}
                       </td>
 
-
-                      {/* ACTIONS */}
+                      <td>
+                        <span
+                          className={
+                            Number(
+                              product.stock_quantity
+                            ) <= 5
+                              ? "seller-stock-low"
+                              : "seller-stock-ok"
+                          }
+                        >
+                          {
+                            product.stock_quantity
+                          }
+                        </span>
+                      </td>
 
                       <td>
+                        <span
+                          className={
+                            product.is_active
+                              ? "seller-status-active"
+                              : "seller-status-inactive"
+                          }
+                        >
+                          {product.is_active
+                            ? "Active"
+                            : "Inactive"}
+                        </span>
+                      </td>
 
-                        <div className="seller-product-actions">
+                      <td>
+                        <button
+                          type="button"
+                          className="seller-secondary-btn"
+                          onClick={() =>
+                            openImageManager(
+                              product
+                            )
+                          }
+                        >
+                          Manage (
+                          {
+                            images.length
+                          }
+                          )
+                        </button>
+                      </td>
 
+                      <td>
+                        <div className="seller-action-buttons">
                           <button
                             type="button"
-                            className="seller-edit-button"
+                            className="seller-edit-btn"
                             onClick={() =>
                               openEditModal(
                                 product
                               )
                             }
-                            title="Edit product"
                           >
-
-                            <Pencil
-                              size={16}
-                            />
-
-                            <span>
-                              Edit
-                            </span>
-
+                            Edit
                           </button>
-
 
                           <button
                             type="button"
-                            className="seller-delete-button"
+                            className="seller-delete-btn"
                             onClick={() =>
-                              setDeleteProductId(
-                                product.id
+                              confirmDelete(
+                                product
                               )
                             }
-                            title="Delete product"
                           >
-
-                            <Trash2
-                              size={16}
-                            />
-
+                            Deactivate
                           </button>
-
                         </div>
-
                       </td>
-
                     </tr>
-
-                  )
-                )}
-
-              </tbody>
-
-            </table>
-
-          </div>
-
-        ) : (
-
-          <div className="seller-products-empty">
-
-            <div className="seller-products-empty-icon">
-
-              <Package size={30} />
-
-            </div>
-
-            <h2>
-              No products found
-            </h2>
-
-            <p>
-              Try changing your search or
-              category filter.
-            </p>
-
-          </div>
-
+                  );
+                }
+              )}
+            </tbody>
+          </table>
         )}
-
       </div>
 
-
-      {/* =================================================
-          ADD / EDIT MODAL
-      ================================================== */}
-
-      {isModalOpen && (
-
-        <div
-          className="seller-product-modal-overlay"
-          onMouseDown={(event) => {
-
-            if (
-              event.target ===
-              event.currentTarget
-            ) {
-
-              closeModal();
-
-            }
-
-          }}
-        >
-
-          <div className="seller-product-modal">
-
-
-            {/* MODAL HEADER */}
-
-            <div className="seller-product-modal-header">
-
+      {showModal && (
+        <div className="seller-modal-overlay">
+          <div className="seller-modal">
+            <div className="seller-modal-header">
               <div>
-
-                <p className="seller-products-eyebrow">
-
-                  {editingProductId !== null
-                    ? "UPDATE PRODUCT"
-                    : "NEW PRODUCT"}
-
-                </p>
-
                 <h2>
-
-                  {editingProductId !== null
+                  {editingProduct
                     ? "Edit Product"
                     : "Add Product"}
-
                 </h2>
 
+                <p>
+                  Enter the product
+                  information below.
+                </p>
               </div>
-
 
               <button
                 type="button"
                 className="seller-modal-close"
                 onClick={closeModal}
-                aria-label="Close"
+                disabled={saving}
               >
-
-                <X size={21} />
-
+                ×
               </button>
-
             </div>
 
-
-            {/* FORM */}
-
             <form
+              onSubmit={saveProduct}
               className="seller-product-form"
-              onSubmit={handleSubmit}
             >
+              <div className="seller-form-grid">
+                <div className="seller-form-group">
+                  <label>
+                    Product Name
+                  </label>
 
+                  <input
+                    type="text"
+                    name="name"
+                    value={form.name}
+                    onChange={
+                      handleNameChange
+                    }
+                    placeholder="Product name"
+                    required
+                  />
+                </div>
 
-              {/* ERROR */}
+                <div className="seller-form-group">
+                  <label>
+                    Product Slug
+                  </label>
 
-              {formError && (
+                  <input
+                    type="text"
+                    name="slug"
+                    value={form.slug}
+                    onChange={
+                      handleFormChange
+                    }
+                    placeholder="product-slug"
+                    required
+                  />
+                </div>
 
-                <div className="seller-product-error">
+                <div className="seller-form-group">
+                  <label>
+                    Category
+                  </label>
 
-                  <AlertCircle
-                    size={17}
+                  <select
+                    name="category_id"
+                    value={
+                      form.category_id
+                    }
+                    onChange={
+                      handleFormChange
+                    }
+                    required
+                  >
+                    <option value="">
+                      Select category
+                    </option>
+
+                    {categories.map(
+                      (category) => (
+                        <option
+                          key={
+                            category.id
+                          }
+                          value={
+                            category.id
+                          }
+                        >
+                          {
+                            category.name
+                          }
+                        </option>
+                      )
+                    )}
+                  </select>
+                </div>
+
+                <div className="seller-form-group">
+                  <label>
+                    Farmer
+                  </label>
+
+                  <select
+                    name="farmer_id"
+                    value={
+                      form.farmer_id
+                    }
+                    onChange={
+                      handleFormChange
+                    }
+                    required
+                  >
+                    <option value="">
+                      Select farmer
+                    </option>
+
+                    {farmers.map(
+                      (farmer) => (
+                        <option
+                          key={
+                            farmer.id
+                          }
+                          value={
+                            farmer.id
+                          }
+                        >
+                          {farmer.name}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </div>
+
+                <div className="seller-form-group">
+                  <label>
+                    Price
+                  </label>
+
+                  <input
+                    type="number"
+                    name="price"
+                    min="0.01"
+                    step="0.01"
+                    value={form.price}
+                    onChange={
+                      handleFormChange
+                    }
+                    required
+                  />
+                </div>
+
+                <div className="seller-form-group">
+                  <label>
+                    Old Price
+                  </label>
+
+                  <input
+                    type="number"
+                    name="old_price"
+                    min="0"
+                    step="0.01"
+                    value={
+                      form.old_price
+                    }
+                    onChange={
+                      handleFormChange
+                    }
+                    placeholder="Optional"
+                  />
+                </div>
+
+                <div className="seller-form-group">
+                  <label>
+                    Stock Quantity
+                  </label>
+
+                  <input
+                    type="number"
+                    name="stock_quantity"
+                    min="0"
+                    step="1"
+                    value={
+                      form.stock_quantity
+                    }
+                    onChange={
+                      handleFormChange
+                    }
+                    required
+                  />
+                </div>
+
+                <div className="seller-form-group">
+                  <label>
+                    Rating
+                  </label>
+
+                  <input
+                    type="number"
+                    name="rating"
+                    min="0"
+                    max="5"
+                    step="0.1"
+                    value={form.rating}
+                    onChange={
+                      handleFormChange
+                    }
+                  />
+                </div>
+
+                <div className="seller-form-group seller-form-group-full">
+                  <label>
+                    Description
+                  </label>
+
+                  <textarea
+                    name="description"
+                    value={
+                      form.description
+                    }
+                    onChange={
+                      handleFormChange
+                    }
+                    rows="5"
+                    placeholder="Product description"
+                  />
+                </div>
+
+                <div className="seller-form-group seller-form-group-full">
+                  <label className="seller-checkbox-label">
+                    <input
+                      type="checkbox"
+                      name="is_active"
+                      checked={
+                        form.is_active
+                      }
+                      onChange={
+                        handleFormChange
+                      }
+                    />
+
+                    Product is active
+                  </label>
+                </div>
+
+                <div className="seller-form-group seller-form-group-full">
+                  <label>
+                    Product Images
+                  </label>
+
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={
+                      handleImageSelection
+                    }
                   />
 
-                  <span>
-                    {formError}
-                  </span>
+                  <small>
+                    Images will be
+                    uploaded to Supabase
+                    Storage after the
+                    product is saved.
+                  </small>
 
-                </div>
-
-              )}
-
-
-              {/* PRODUCT INFORMATION */}
-
-              <div className="seller-form-section">
-
-                <div className="seller-form-section-title">
-
-                  <h3>
-                    Product Information
-                  </h3>
-
-                  <span>
-                    Required
-                  </span>
-
-                </div>
-
-
-                <div className="seller-form-grid">
-
-
-                  {/* NAME */}
-
-                  <div className="seller-form-field full">
-
-                    <label htmlFor="product-name">
-                      Product Name
-                    </label>
-
-                    <input
-                      id="product-name"
-                      type="text"
-                      name="name"
-                      placeholder="Enter product name"
-                      value={form.name}
-                      onChange={
-                        handleChange
-                      }
-                    />
-
-                  </div>
-
-
-                  {/* CATEGORY */}
-
-                  <div className="seller-form-field">
-
-                    <label htmlFor="product-category">
-                      Category
-                    </label>
-
-                    <select
-                      id="product-category"
-                      name="category"
-                      value={form.category}
-                      onChange={
-                        handleChange
-                      }
-                    >
-
-                      <option value="">
-                        Select category
-                      </option>
-
-
-                      {categories.map(
-                        (category) => (
-
-                          <option
-                            key={category}
-                            value={category}
+                  {selectedImages.length >
+                    0 && (
+                    <div className="seller-image-preview-grid">
+                      {selectedImages.map(
+                        (image) => (
+                          <div
+                            key={
+                              image.id
+                            }
+                            className="seller-image-preview"
                           >
-                            {category}
-                          </option>
+                            <img
+                              src={
+                                image.preview
+                              }
+                              alt={
+                                image.file
+                                  .name
+                              }
+                            />
 
+                            <button
+                              type="button"
+                              onClick={() =>
+                                removeSelectedImage(
+                                  image.id
+                                )
+                              }
+                            >
+                              ×
+                            </button>
+                          </div>
                         )
                       )}
-
-                    </select>
-
-                  </div>
-
-
-                  {/* PRICE */}
-
-                  <div className="seller-form-field">
-
-                    <label htmlFor="product-price">
-                      Price (₹)
-                    </label>
-
-                    <input
-                      id="product-price"
-                      type="number"
-                      name="price"
-                      min="0"
-                      step="1"
-                      placeholder="499"
-                      value={form.price}
-                      onChange={
-                        handleChange
-                      }
-                    />
-
-                  </div>
-
-
-                  {/* OLD PRICE */}
-
-                  <div className="seller-form-field">
-
-                    <label htmlFor="product-old-price">
-
-                      Original Price (₹)
-
-                      <small>
-                        Optional
-                      </small>
-
-                    </label>
-
-                    <input
-                      id="product-old-price"
-                      type="number"
-                      name="oldPrice"
-                      min="0"
-                      step="1"
-                      placeholder="599"
-                      value={form.oldPrice}
-                      onChange={
-                        handleChange
-                      }
-                    />
-
-                  </div>
-
-
-                  {/* DESCRIPTION */}
-
-                  <div className="seller-form-field full">
-
-                    <label htmlFor="product-description">
-                      Description
-                    </label>
-
-                    <textarea
-                      id="product-description"
-                      name="description"
-                      rows="4"
-                      placeholder="Describe the product..."
-                      value={
-                        form.description
-                      }
-                      onChange={
-                        handleChange
-                      }
-                    />
-
-                  </div>
-
-                </div>
-
-              </div>
-
-
-              {/* =================================================
-                  IMAGES
-              ================================================== */}
-
-              <div className="seller-form-section">
-
-                <div className="seller-form-section-title">
-
-                  <div>
-
-                    <h3>
-                      Product Images
-                    </h3>
-
-                    <p>
-                      Add multiple product images.
-                    </p>
-
-                  </div>
-
-                  <span>
-                    Required
-                  </span>
-
-                </div>
-
-
-                <div className="seller-media-grid">
-
-                  {imagePreviews.map(
-                    (image, index) => (
-
-                      <div
-                        className="seller-media-preview"
-                        key={`${image}-${index}`}
-                      >
-
-                        <img
-                          src={image}
-                          alt={`Product ${index + 1}`}
-                        />
-
-
-                        <button
-                          type="button"
-                          className="seller-media-remove"
-                          onClick={() =>
-                            removeImage(
-                              index
-                            )
-                          }
-                          aria-label="Remove image"
-                        >
-
-                          <X size={15} />
-
-                        </button>
-
-
-                        {index === 0 && (
-
-                          <span className="seller-main-media-label">
-                            Main
-                          </span>
-
-                        )}
-
-                      </div>
-
-                    )
+                    </div>
                   )}
+                </div>
 
+                <div className="seller-form-group seller-form-group-full">
+                  <label>
+                    Product Videos
+                  </label>
 
-                  <button
-                    type="button"
-                    className="seller-media-upload"
-                    onClick={() =>
-                      imageInputRef.current?.click()
+                  <input
+                    type="file"
+                    accept="video/*"
+                    multiple
+                    onChange={
+                      handleVideoSelection
                     }
-                  >
+                  />
 
-                    <Upload size={22} />
+                  <small>
+                    Video preview is kept
+                    in the browser for
+                    now. Persistent
+                    product video storage
+                    will be added separately.
+                  </small>
 
-                    <span>
-                      Add Images
-                    </span>
+                  {selectedVideos.length >
+                    0 && (
+                    <div className="seller-video-preview-list">
+                      {selectedVideos.map(
+                        (video) => (
+                          <div
+                            key={
+                              video.id
+                            }
+                            className="seller-video-preview"
+                          >
+                            <video
+                              src={
+                                video.preview
+                              }
+                              controls
+                            />
 
-                    <small>
-                      JPG, PNG, WEBP
-                    </small>
-
-                  </button>
-
-                </div>
-
-
-                <input
-                  ref={imageInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  hidden
-                  onChange={
-                    handleImageChange
-                  }
-                />
-
-              </div>
-
-
-              {/* =================================================
-                  VIDEOS
-              ================================================== */}
-
-              <div className="seller-form-section">
-
-                <div className="seller-form-section-title">
-
-                  <div>
-
-                    <h3>
-                      Product Videos
-                    </h3>
-
-                    <p>
-                      Add product demonstration videos.
-                    </p>
-
-                  </div>
-
-                  <span className="optional-label">
-                    Optional
-                  </span>
-
-                </div>
-
-
-                <div className="seller-media-grid seller-video-grid">
-
-                  {videoPreviews.map(
-                    (video, index) => (
-
-                      <div
-                        className="seller-media-preview seller-video-preview"
-                        key={`${video}-${index}`}
-                      >
-
-                        <video
-                          src={video}
-                          controls
-                          preload="metadata"
-                        />
-
-
-                        <button
-                          type="button"
-                          className="seller-media-remove"
-                          onClick={() =>
-                            removeVideo(
-                              index
-                            )
-                          }
-                          aria-label="Remove video"
-                        >
-
-                          <X size={15} />
-
-                        </button>
-
-                      </div>
-
-                    )
+                            <button
+                              type="button"
+                              onClick={() =>
+                                removeSelectedVideo(
+                                  video.id
+                                )
+                              }
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        )
+                      )}
+                    </div>
                   )}
-
-
-                  <button
-                    type="button"
-                    className="seller-media-upload seller-video-upload"
-                    onClick={() =>
-                      videoInputRef.current?.click()
-                    }
-                  >
-
-                    <Video size={23} />
-
-                    <span>
-                      Add Videos
-                    </span>
-
-                    <small>
-                      MP4, WEBM, MOV
-                    </small>
-
-                  </button>
-
                 </div>
-
-
-                <input
-                  ref={videoInputRef}
-                  type="file"
-                  accept="video/*"
-                  multiple
-                  hidden
-                  onChange={
-                    handleVideoChange
-                  }
-                />
-
               </div>
 
-
-              {/* =================================================
-                  INVENTORY
-              ================================================== */}
-
-              <div className="seller-form-section">
-
-                <div className="seller-form-section-title">
-
-                  <div>
-
-                    <h3>
-                      Inventory
-                    </h3>
-
-                    <p>
-                      Manage the current product stock.
-                    </p>
-
-                  </div>
-
-                </div>
-
-
-                <div className="seller-form-grid">
-
-
-                  <div className="seller-form-field">
-
-                    <label htmlFor="product-stock-status">
-                      Stock Status
-                    </label>
-
-                    <select
-                      id="product-stock-status"
-                      name="stockStatus"
-                      value={
-                        form.stockStatus
-                      }
-                      onChange={
-                        handleChange
-                      }
-                    >
-
-                      <option value="in-stock">
-                        In Stock
-                      </option>
-
-                      <option value="out-of-stock">
-                        Out of Stock
-                      </option>
-
-                    </select>
-
-                  </div>
-
-
-                  <div className="seller-form-field">
-
-                    <label htmlFor="product-stock-count">
-                      Stock Count
-                    </label>
-
-                    <input
-                      id="product-stock-count"
-                      type="number"
-                      name="stockCount"
-                      min="0"
-                      step="1"
-                      placeholder="25"
-                      value={
-                        form.stockCount
-                      }
-                      onChange={
-                        handleChange
-                      }
-                    />
-
-                  </div>
-
-                </div>
-
-              </div>
-
-
-              {/* FORM ACTIONS */}
-
-              <div className="seller-product-form-actions">
-
+              <div className="seller-modal-footer">
                 <button
                   type="button"
-                  className="seller-form-cancel"
+                  className="seller-secondary-btn"
                   onClick={closeModal}
+                  disabled={saving}
                 >
                   Cancel
                 </button>
 
-
                 <button
                   type="submit"
-                  className="seller-form-submit"
+                  className="seller-primary-btn"
+                  disabled={
+                    saving ||
+                    uploadingImages
+                  }
                 >
-
-                  {editingProductId !== null ? (
-
-                    <>
-                      <Pencil size={16} />
-                      Update Product
-                    </>
-
-                  ) : (
-
-                    <>
-                      <Plus size={17} />
-                      Add Product
-                    </>
-
-                  )}
-
+                  {saving
+                    ? "Saving..."
+                    : uploadingImages
+                    ? "Uploading..."
+                    : editingProduct
+                    ? "Update Product"
+                    : "Create Product"}
                 </button>
-
               </div>
-
             </form>
-
           </div>
-
         </div>
-
       )}
 
-
-      {/* =================================================
-          DELETE CONFIRMATION
-      ================================================== */}
-
-      {deleteProductId !== null && (
-
-        <div className="seller-delete-overlay">
-
-          <div className="seller-delete-modal">
-
-            <div className="seller-delete-icon">
-
-              <Trash2 size={23} />
-
-            </div>
-
-
+      {showDeleteModal && (
+        <div className="seller-modal-overlay">
+          <div className="seller-confirm-modal">
             <h2>
-              Delete Product?
+              Deactivate Product?
             </h2>
 
-
             <p>
-              This product will be removed from
-              your seller product list. This action
-              cannot be undone.
+              Are you sure you want to
+              deactivate "
+              {productToDelete?.name}"
+              ?
             </p>
 
-
-            <div className="seller-delete-actions">
-
+            <div className="seller-modal-footer">
               <button
                 type="button"
-                className="seller-delete-cancel"
+                className="seller-secondary-btn"
                 onClick={() =>
-                  setDeleteProductId(
-                    null
+                  setShowDeleteModal(
+                    false
                   )
                 }
+                disabled={saving}
               >
                 Cancel
               </button>
 
-
               <button
                 type="button"
-                className="seller-delete-confirm"
+                className="seller-delete-btn"
                 onClick={
-                  handleDelete
+                  deleteProduct
                 }
+                disabled={saving}
               >
-                Delete Product
+                {saving
+                  ? "Processing..."
+                  : "Deactivate"}
               </button>
-
             </div>
-
           </div>
-
         </div>
-
       )}
 
-    </main>
+      {showImageModal &&
+        selectedProduct && (
+          <div className="seller-modal-overlay">
+            <div className="seller-modal seller-image-manager-modal">
+              <div className="seller-modal-header">
+                <div>
+                  <h2>
+                    Product Images
+                  </h2>
 
+                  <p>
+                    {
+                      selectedProduct.name
+                    }
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  className="seller-modal-close"
+                  onClick={
+                    closeImageManager
+                  }
+                  disabled={
+                    uploadingImages
+                  }
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="seller-image-manager">
+                <div className="seller-form-group">
+                  <label>
+                    Add Images
+                  </label>
+
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={
+                      handleImageSelection
+                    }
+                  />
+                </div>
+
+                {selectedImages.length >
+                  0 && (
+                  <div className="seller-image-preview-grid">
+                    {selectedImages.map(
+                      (image) => (
+                        <div
+                          key={
+                            image.id
+                          }
+                          className="seller-image-preview"
+                        >
+                          <img
+                            src={
+                              image.preview
+                            }
+                            alt={
+                              image.file
+                                .name
+                            }
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              removeSelectedImage(
+                                image.id
+                              )
+                            }
+                          >
+                            ×
+                          </button>
+                        </div>
+                      )
+                    )}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  className="seller-primary-btn"
+                  onClick={
+                    uploadImagesFromManager
+                  }
+                  disabled={
+                    uploadingImages ||
+                    selectedImages.length ===
+                      0
+                  }
+                >
+                  {uploadingImages
+                    ? "Uploading..."
+                    : "Upload Images"}
+                </button>
+
+                <div className="seller-existing-images">
+                  <h3>
+                    Existing Images
+                  </h3>
+
+                  {getProductImages(
+                    selectedProduct
+                  ).length === 0 ? (
+                    <p>
+                      No images uploaded
+                      yet.
+                    </p>
+                  ) : (
+                    <div className="seller-image-manager-grid">
+                      {getProductImages(
+                        selectedProduct
+                      ).map(
+                        (image) => (
+                          <div
+                            key={
+                              image.id
+                            }
+                            className={`seller-managed-image ${
+                              image.is_primary
+                                ? "seller-managed-image-primary"
+                                : ""
+                            }`}
+                          >
+                            <img
+                              src={getImageUrl(
+                                image.storage_path
+                              )}
+                              alt={`${selectedProduct.name} product`}
+                            />
+
+                            {image.is_primary && (
+                              <span className="seller-primary-image-badge">
+                                Primary
+                              </span>
+                            )}
+
+                            <div className="seller-managed-image-actions">
+                              {!image.is_primary && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPrimaryImage(
+                                      image.id
+                                    )
+                                  }
+                                  disabled={
+                                    uploadingImages
+                                  }
+                                >
+                                  Set Primary
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  deleteProductImage(
+                                    image.id
+                                  )
+                                }
+                                disabled={
+                                  uploadingImages
+                                }
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+    </div>
   );
-}
+};
 
 export default SellerProducts;
