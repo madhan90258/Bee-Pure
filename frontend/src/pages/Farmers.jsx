@@ -1,60 +1,148 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+
 import {
   ArrowRight,
   MapPin,
   Leaf,
   Handshake,
   Sprout,
+  Loader2,
 } from "lucide-react";
 
 import "../styles/Farmers.css";
 
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
+
+/* =========================================
+   FARMER IMAGE URL
+========================================= */
+
+const getFarmerImageUrl = (imagePath) => {
+  if (!imagePath) {
+    return "";
+  }
+
+  /*
+   If database already contains a complete URL
+  */
+  if (
+    imagePath.startsWith("http://") ||
+    imagePath.startsWith("https://")
+  ) {
+    return imagePath;
+  }
+
+  /*
+   If database contains a frontend public path
+   Example:
+   /farmers/farmer-1.jpg
+  */
+  if (imagePath.startsWith("/")) {
+    return imagePath;
+  }
+
+  /*
+   If database only contains the filename
+   Example:
+   farmer-1.jpg
+
+   Files should exist inside:
+   frontend/public/farmers/
+  */
+  return `/farmers/${imagePath}`;
+};
+
+
+/* =========================================
+   FARMERS
+========================================= */
+
 function Farmers() {
-  const farmers = [
-    {
-      id: 1,
-      name: "Ramesh Kumar",
-      location: "Western Ghats",
-      specialty: "Forest Honey",
-      image: "/farmers/farmer-1.jpg",
-      description:
-        "Ramesh works closely with local forests and beekeeping communities to carefully collect naturally produced forest honey.",
-    },
-    {
-      id: 2,
-      name: "Lakshmi Devi",
-      location: "Andhra Pradesh",
-      specialty: "Natural Jaggery",
-      image: "/farmers/farmer-2.jpg",
-      description:
-        "Lakshmi and her family prepare traditional jaggery using locally grown sugarcane and time-tested methods.",
-    },
-    {
-      id: 3,
-      name: "Suresh Rao",
-      location: "Telangana",
-      specialty: "Organic Turmeric",
-      image: "/farmers/farmer-3.jpg",
-      description:
-        "Suresh grows turmeric using careful farming practices focused on maintaining the natural quality of the crop.",
-    },
-    {
-      id: 4,
-      name: "Anitha & Family",
-      location: "Karnataka",
-      specialty: "A2 Ghee",
-      image: "/farmers/farmer-4.jpg",
-      description:
-        "Anitha's family follows traditional preparation methods to create rich, naturally prepared ghee.",
-    },
-  ];
+  const [farmers, setFarmers] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+
+  const [error, setError] = useState("");
+
+
+  /* =========================================
+     LOAD FARMERS FROM BACKEND
+  ========================================== */
+
+  useEffect(() => {
+    const loadFarmers = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const response = await fetch(
+          `${API_URL}/api/farmers`
+        );
+
+        const result = await response.json();
+
+        if (
+          !response.ok ||
+          !result.success
+        ) {
+          throw new Error(
+            result.message ||
+              "Unable to fetch farmers"
+          );
+        }
+
+        const mappedFarmers =
+          (result.farmers || []).map(
+            (farmer) => ({
+              id: farmer.id,
+
+              name:
+                farmer.name || "",
+
+              location:
+                farmer.location || "",
+
+              description:
+                farmer.description || "",
+
+              image:
+                getFarmerImageUrl(
+                  farmer.image_path
+                ),
+            })
+          );
+
+        setFarmers(mappedFarmers);
+
+      } catch (err) {
+        console.error(
+          "Failed to load farmers:",
+          err
+        );
+
+        setError(
+          err.message ||
+            "Unable to load farmers"
+        );
+
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFarmers();
+  }, []);
+
 
   return (
     <main className="farmers-page">
 
       {/* =========================================
           HERO
-      ========================================= */}
+      ========================================== */}
 
       <section className="farmers-hero">
 
@@ -69,12 +157,15 @@ function Farmers() {
             <h1>
               Meet the Farmers
               <br />
-              <span>Behind Every Product.</span>
+              <span>
+                Behind Every Product.
+              </span>
             </h1>
 
             <p className="farmers-hero-description">
-              Our products begin with farmers who care deeply
-              about the land, their craft and the quality of
+              Our products begin with farmers
+              who care deeply about the land,
+              their craft and the quality of
               what they produce.
             </p>
 
@@ -83,6 +174,7 @@ function Farmers() {
               className="farmers-hero-button"
             >
               Explore Products
+
               <ArrowRight size={17} />
             </Link>
 
@@ -95,7 +187,7 @@ function Farmers() {
 
       {/* =========================================
           INTRO
-      ========================================= */}
+      ========================================== */}
 
       <section className="farmers-intro">
 
@@ -117,19 +209,22 @@ function Farmers() {
 
             </div>
 
+
             <div className="farmers-intro-text">
 
               <p>
-                Bee Pure works directly with local farmers,
-                beekeepers and producers who share our belief
+                Bee Pure works directly with
+                local farmers, beekeepers and
+                producers who share our belief
                 in naturally good food.
               </p>
 
               <p>
-                By building direct relationships, we aim to
-                create a transparent connection between the
-                people who grow and produce our products and
-                the families who enjoy them.
+                By building direct relationships,
+                we aim to create a transparent
+                connection between the people
+                who grow and produce our products
+                and the families who enjoy them.
               </p>
 
             </div>
@@ -142,8 +237,8 @@ function Farmers() {
 
 
       {/* =========================================
-          FARMER CARDS
-      ========================================= */}
+          FARMER LIST
+      ========================================== */}
 
       <section className="farmers-list-section">
 
@@ -162,64 +257,169 @@ function Farmers() {
             </h2>
 
             <p>
-              Every product has a story. These are some of
-              the people who help make ours possible.
+              Every product has a story.
+              These are some of the people
+              who help make ours possible.
             </p>
 
           </div>
 
 
-          <div className="farmers-grid">
+          {/* =====================================
+              LOADING
+          ====================================== */}
 
-            {farmers.map((farmer) => (
+          {loading && (
 
-              <article
-                className="farmer-card"
-                key={farmer.id}
+            <div className="farmers-loading">
+
+              <Loader2
+                size={24}
+                className="spin"
+              />
+
+              <span>
+                Loading farmers...
+              </span>
+
+            </div>
+
+          )}
+
+
+          {/* =====================================
+              ERROR
+          ====================================== */}
+
+          {!loading && error && (
+
+            <div className="farmers-error">
+
+              <h3>
+                Unable to Load Farmers
+              </h3>
+
+              <p>
+                {error}
+              </p>
+
+              <button
+                type="button"
+                onClick={() =>
+                  window.location.reload()
+                }
               >
+                Try Again
+              </button>
 
-                <div className="farmer-image">
+            </div>
 
-                  <img
-                    src={farmer.image}
-                    alt={farmer.name}
-                    loading="lazy"
-                  />
-
-                </div>
+          )}
 
 
-                <div className="farmer-content">
+          {/* =====================================
+              EMPTY
+          ====================================== */}
 
-                  <p className="farmer-specialty">
-                    {farmer.specialty}
-                  </p>
+          {!loading &&
+            !error &&
+            farmers.length === 0 && (
 
-                  <h3>
-                    {farmer.name}
-                  </h3>
+              <div className="farmers-empty">
 
-                  <div className="farmer-location">
+                <h3>
+                  No Farmers Available
+                </h3>
 
-                    <MapPin size={14} />
+                <p>
+                  There are currently no
+                  active farmers to display.
+                </p>
 
-                    <span>
-                      {farmer.location}
-                    </span>
+              </div>
 
-                  </div>
+            )}
 
-                  <p className="farmer-description">
-                    {farmer.description}
-                  </p>
 
-                </div>
+          {/* =====================================
+              FARMER GRID
+          ====================================== */}
 
-              </article>
+          {!loading &&
+            !error &&
+            farmers.length > 0 && (
 
-            ))}
+              <div className="farmers-grid">
 
-          </div>
+                {farmers.map((farmer) => (
+
+                  <article
+                    className="farmer-card"
+                    key={farmer.id}
+                  >
+
+                    {/* IMAGE */}
+
+                    <div className="farmer-image">
+
+                      {farmer.image ? (
+
+                        <img
+                          src={farmer.image}
+                          alt={farmer.name}
+                          loading="lazy"
+                          onError={(event) => {
+                            console.error(
+                              "Farmer image failed to load:",
+                              event.currentTarget.src
+                            );
+                          }}
+                        />
+
+                      ) : (
+
+                        <div className="farmer-image-placeholder">
+                          No Image
+                        </div>
+
+                      )}
+
+                    </div>
+
+
+                    {/* CONTENT */}
+
+                    <div className="farmer-content">
+
+                      <h3>
+                        {farmer.name}
+                      </h3>
+
+
+                      <div className="farmer-location">
+
+                        <MapPin size={14} />
+
+                        <span>
+                          {farmer.location}
+                        </span>
+
+                      </div>
+
+
+                      <p className="farmer-description">
+                        {farmer.description}
+                      </p>
+
+                    </div>
+
+                  </article>
+
+                ))}
+
+              </div>
+
+            )}
 
         </div>
 
@@ -228,7 +428,7 @@ function Farmers() {
 
       {/* =========================================
           OUR PROMISE
-      ========================================= */}
+      ========================================== */}
 
       <section className="farmers-promise">
 
@@ -251,10 +451,14 @@ function Farmers() {
 
           <div className="farmers-promise-grid">
 
+            {/* CARD 1 */}
+
             <div className="farmers-promise-card">
 
               <div className="farmers-promise-icon">
+
                 <Handshake size={22} />
+
               </div>
 
               <h3>
@@ -262,18 +466,22 @@ function Farmers() {
               </h3>
 
               <p>
-                We work toward building direct and lasting
-                relationships with the people who produce
-                our food.
+                We work toward building direct
+                and lasting relationships with
+                the people who produce our food.
               </p>
 
             </div>
 
 
+            {/* CARD 2 */}
+
             <div className="farmers-promise-card">
 
               <div className="farmers-promise-icon">
+
                 <Leaf size={22} />
+
               </div>
 
               <h3>
@@ -281,17 +489,22 @@ function Farmers() {
               </h3>
 
               <p>
-                We look for products that respect traditional
-                practices and preserve their natural character.
+                We look for products that respect
+                traditional practices and preserve
+                their natural character.
               </p>
 
             </div>
 
 
+            {/* CARD 3 */}
+
             <div className="farmers-promise-card">
 
               <div className="farmers-promise-icon">
+
                 <Sprout size={22} />
+
               </div>
 
               <h3>
@@ -299,9 +512,10 @@ function Farmers() {
               </h3>
 
               <p>
-                Choosing local producers helps strengthen
-                farming communities and keeps the connection
-                closer to home.
+                Choosing local producers helps
+                strengthen farming communities
+                and keeps the connection closer
+                to home.
               </p>
 
             </div>
@@ -315,7 +529,7 @@ function Farmers() {
 
       {/* =========================================
           CTA
-      ========================================= */}
+      ========================================== */}
 
       <section className="farmers-cta">
 
@@ -334,8 +548,9 @@ function Farmers() {
             </h2>
 
             <p>
-              Discover naturally good products sourced
-              through our growing farmer community.
+              Discover naturally good products
+              sourced through our growing
+              farmer community.
             </p>
 
             <Link
@@ -343,6 +558,7 @@ function Farmers() {
               className="farmers-cta-button"
             >
               Shop Bee Pure
+
               <ArrowRight size={17} />
             </Link>
 

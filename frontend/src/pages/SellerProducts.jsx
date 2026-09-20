@@ -1,9 +1,15 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import { supabase } from "../lib/supabase";
 import "../styles/SellerProducts.css";
 
 const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000";
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
 
 const STORAGE_BUCKET = "product-images";
 
@@ -21,13 +27,19 @@ const emptyForm = {
   is_active: true,
 };
 
+/* =========================================================
+   AUTH HEADERS
+========================================================= */
+
 const getAuthHeaders = async () => {
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
   if (!session?.access_token) {
-    throw new Error("Your session has expired. Please login again.");
+    throw new Error(
+      "Your session has expired. Please login again."
+    );
   }
 
   return {
@@ -36,8 +48,14 @@ const getAuthHeaders = async () => {
   };
 };
 
+/* =========================================================
+   IMAGE URL
+========================================================= */
+
 const getImageUrl = (storagePath) => {
-  if (!storagePath) return "";
+  if (!storagePath) {
+    return "";
+  }
 
   if (
     storagePath.startsWith("http://") ||
@@ -55,6 +73,10 @@ const getImageUrl = (storagePath) => {
   return publicUrl;
 };
 
+/* =========================================================
+   SLUG
+========================================================= */
+
 const slugify = (value) => {
   return value
     .toLowerCase()
@@ -63,6 +85,10 @@ const slugify = (value) => {
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-");
 };
+
+/* =========================================================
+   PRICE
+========================================================= */
 
 const formatPrice = (value) => {
   const number = Number(value);
@@ -78,6 +104,10 @@ const formatPrice = (value) => {
   }).format(number);
 };
 
+/* =========================================================
+   CATEGORY NAME
+========================================================= */
+
 const getCategoryName = (product) => {
   return (
     product?.categories?.name ||
@@ -86,53 +116,114 @@ const getCategoryName = (product) => {
   );
 };
 
+/* =========================================================
+   FARMER NAME
+========================================================= */
+
 const getFarmerName = (product) => {
-  return product?.farmers?.name || "No farmer";
+  return (
+    product?.farmers?.name ||
+    "No farmer"
+  );
 };
 
+/* =========================================================
+   PRODUCT IMAGES
+========================================================= */
+
 const getProductImages = (product) => {
-  const images = Array.isArray(product?.product_images)
+  const images = Array.isArray(
+    product?.product_images
+  )
     ? [...product.product_images]
     : [];
 
   images.sort((a, b) => {
-    if (a.is_primary && !b.is_primary) return -1;
-    if (!a.is_primary && b.is_primary) return 1;
+    if (
+      a.is_primary &&
+      !b.is_primary
+    ) {
+      return -1;
+    }
+
+    if (
+      !a.is_primary &&
+      b.is_primary
+    ) {
+      return 1;
+    }
+
     return 0;
   });
 
   return images;
 };
 
+/* =========================================================
+   COMPONENT
+========================================================= */
+
 const SellerProducts = () => {
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [farmers, setFarmers] = useState([]);
+  const [products, setProducts] =
+    useState([]);
 
-  const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [categories, setCategories] =
+    useState([]);
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [farmers, setFarmers] =
+    useState([]);
 
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [search, setSearch] =
+    useState("");
 
-  const [showModal, setShowModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showImageModal, setShowImageModal] = useState(false);
+  const [categoryFilter, setCategoryFilter] =
+    useState("all");
 
-  const [editingProduct, setEditingProduct] = useState(null);
-  const [productToDelete, setProductToDelete] = useState(null);
+  const [loading, setLoading] =
+    useState(true);
 
-  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [saving, setSaving] =
+    useState(false);
 
-  const [form, setForm] = useState(emptyForm);
+  const [error, setError] =
+    useState("");
 
-  const [selectedImages, setSelectedImages] = useState([]);
-  const [uploadingImages, setUploadingImages] = useState(false);
+  const [success, setSuccess] =
+    useState("");
 
-  const [selectedVideos, setSelectedVideos] = useState([]);
+  const [showModal, setShowModal] =
+    useState(false);
+
+  const [showDeleteModal, setShowDeleteModal] =
+    useState(false);
+
+  const [showImageModal, setShowImageModal] =
+    useState(false);
+
+  const [editingProduct, setEditingProduct] =
+    useState(null);
+
+  const [productToDelete, setProductToDelete] =
+    useState(null);
+
+  const [selectedProduct, setSelectedProduct] =
+    useState(null);
+
+  const [form, setForm] =
+    useState(emptyForm);
+
+  const [selectedImages, setSelectedImages] =
+    useState([]);
+
+  const [uploadingImages, setUploadingImages] =
+    useState(false);
+
+  const [selectedVideos, setSelectedVideos] =
+    useState([]);
+
+  /* =========================================================
+     INITIAL LOAD
+  ========================================================= */
 
   useEffect(() => {
     loadInitialData();
@@ -150,14 +241,23 @@ const SellerProducts = () => {
       ]);
     } catch (err) {
       console.error(err);
-      setError(err.message || "Unable to load seller products.");
+
+      setError(
+        err.message ||
+          "Unable to load seller products."
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  /* =========================================================
+     LOAD PRODUCTS
+  ========================================================= */
+
   const loadProducts = async () => {
-    const headers = await getAuthHeaders();
+    const headers =
+      await getAuthHeaders();
 
     const response = await fetch(
       `${API_URL}/api/seller/products`,
@@ -166,35 +266,57 @@ const SellerProducts = () => {
       }
     );
 
-    const data = await response.json();
+    const data =
+      await response.json();
 
     if (!response.ok) {
       throw new Error(
-        data.message || "Unable to fetch products."
+        data.message ||
+          "Unable to fetch products."
       );
     }
 
-    setProducts(data.products || []);
+    const loadedProducts =
+      data.products || [];
+
+    setProducts(
+      loadedProducts
+    );
+
+    return loadedProducts;
   };
+
+  /* =========================================================
+     LOAD CATEGORIES
+  ========================================================= */
 
   const loadCategories = async () => {
     const response = await fetch(
       `${API_URL}/api/categories`
     );
 
-    const data = await response.json();
+    const data =
+      await response.json();
 
     if (!response.ok) {
       throw new Error(
-        data.message || "Unable to fetch categories."
+        data.message ||
+          "Unable to fetch categories."
       );
     }
 
-    setCategories(data.categories || []);
+    setCategories(
+      data.categories || []
+    );
   };
 
+  /* =========================================================
+     LOAD FARMERS
+  ========================================================= */
+
   const loadFarmers = async () => {
-    const headers = await getAuthHeaders();
+    const headers =
+      await getAuthHeaders();
 
     const response = await fetch(
       `${API_URL}/api/farmers`,
@@ -203,40 +325,69 @@ const SellerProducts = () => {
       }
     );
 
-    const data = await response.json();
+    const data =
+      await response.json();
 
     if (!response.ok) {
       throw new Error(
-        data.message || "Unable to fetch farmers."
+        data.message ||
+          "Unable to fetch farmers."
       );
     }
 
-    setFarmers(data.farmers || []);
+    setFarmers(
+      data.farmers || []
+    );
   };
 
+  /* =========================================================
+     FILTER PRODUCTS
+  ========================================================= */
+
   const filteredProducts = useMemo(() => {
-    const searchValue = search.trim().toLowerCase();
+    const searchValue =
+      search.trim().toLowerCase();
 
-    return products.filter((product) => {
-      const matchesSearch =
-        !searchValue ||
-        product.name?.toLowerCase().includes(searchValue) ||
-        product.slug?.toLowerCase().includes(searchValue);
+    return products.filter(
+      (product) => {
+        const matchesSearch =
+          !searchValue ||
+          product.name
+            ?.toLowerCase()
+            .includes(searchValue) ||
+          product.slug
+            ?.toLowerCase()
+            .includes(searchValue);
 
-      const matchesCategory =
-        categoryFilter === "all" ||
-        product.category_id === categoryFilter;
+        const matchesCategory =
+          categoryFilter === "all" ||
+          String(
+            product.category_id
+          ) === String(categoryFilter);
 
-      return matchesSearch && matchesCategory;
-    });
-  }, [products, search, categoryFilter]);
+        return (
+          matchesSearch &&
+          matchesCategory
+        );
+      }
+    );
+  }, [
+    products,
+    search,
+    categoryFilter,
+  ]);
+
+  /* =========================================================
+     OPEN ADD MODAL
+  ========================================================= */
 
   const openAddModal = () => {
     setEditingProduct(null);
 
     setForm({
       ...emptyForm,
-      farmer_id: farmers[0]?.id || "",
+      farmer_id:
+        farmers[0]?.id || "",
     });
 
     setSelectedImages([]);
@@ -244,23 +395,37 @@ const SellerProducts = () => {
 
     setError("");
     setSuccess("");
+
     setShowModal(true);
   };
 
-  const openEditModal = (product) => {
+  /* =========================================================
+     OPEN EDIT MODAL
+  ========================================================= */
+
+  const openEditModal = (
+    product
+  ) => {
     setEditingProduct(product);
 
     setForm({
       id: product.id,
       name: product.name || "",
       slug: product.slug || "",
-      description: product.description || "",
-      category_id: product.category_id || "",
-      farmer_id: product.farmer_id || "",
-      price: product.price ?? "",
-      old_price: product.old_price ?? "",
-      stock_quantity: product.stock_quantity ?? 0,
-      rating: product.rating ?? 0,
+      description:
+        product.description || "",
+      category_id:
+        product.category_id || "",
+      farmer_id:
+        product.farmer_id || "",
+      price:
+        product.price ?? "",
+      old_price:
+        product.old_price ?? "",
+      stock_quantity:
+        product.stock_quantity ?? 0,
+      rating:
+        product.rating ?? 0,
       is_active:
         product.is_active === undefined
           ? true
@@ -272,11 +437,38 @@ const SellerProducts = () => {
 
     setError("");
     setSuccess("");
+
     setShowModal(true);
   };
 
+  /* =========================================================
+     CLOSE PRODUCT MODAL
+  ========================================================= */
+
   const closeModal = () => {
-    if (saving) return;
+    if (saving) {
+      return;
+    }
+
+    selectedImages.forEach(
+      (image) => {
+        if (image.preview) {
+          URL.revokeObjectURL(
+            image.preview
+          );
+        }
+      }
+    );
+
+    selectedVideos.forEach(
+      (video) => {
+        if (video.preview) {
+          URL.revokeObjectURL(
+            video.preview
+          );
+        }
+      }
+    );
 
     setShowModal(false);
     setEditingProduct(null);
@@ -285,9 +477,19 @@ const SellerProducts = () => {
     setForm(emptyForm);
   };
 
-  const handleFormChange = (event) => {
-    const { name, value, type, checked } =
-      event.target;
+  /* =========================================================
+     FORM CHANGE
+  ========================================================= */
+
+  const handleFormChange = (
+    event
+  ) => {
+    const {
+      name,
+      value,
+      type,
+      checked,
+    } = event.target;
 
     setForm((current) => ({
       ...current,
@@ -296,106 +498,203 @@ const SellerProducts = () => {
           ? checked
           : value,
     }));
+
+    setError("");
   };
 
-  const handleNameChange = (event) => {
-    const value = event.target.value;
+  /* =========================================================
+     PRODUCT NAME CHANGE
+  ========================================================= */
+
+  const handleNameChange = (
+    event
+  ) => {
+    const value =
+      event.target.value;
 
     setForm((current) => ({
       ...current,
       name: value,
+
       slug:
-        current.id || current.slug
+        current.id ||
+        current.slug
           ? current.slug
           : slugify(value),
     }));
+
+    setError("");
   };
 
-  const handleImageSelection = (event) => {
+  /* =========================================================
+     IMAGE SELECTION
+  ========================================================= */
+
+  const handleImageSelection = (
+    event
+  ) => {
     const files = Array.from(
       event.target.files || []
     );
 
-    const validFiles = files.filter((file) =>
-      file.type.startsWith("image/")
-    );
+    const validFiles =
+      files.filter((file) =>
+        file.type.startsWith(
+          "image/"
+        )
+      );
 
-    const mappedFiles = validFiles.map(
-      (file) => ({
-        id:
-          `${file.name}-${file.lastModified}-${Math.random()}`,
+    const invalidFiles =
+      files.filter(
+        (file) =>
+          !file.type.startsWith(
+            "image/"
+          )
+      );
+
+    if (invalidFiles.length > 0) {
+      setError(
+        "Only image files are allowed."
+      );
+    }
+
+    const mappedFiles =
+      validFiles.map((file) => ({
+        id: `${file.name}-${file.lastModified}-${Math.random()}`,
         file,
-        preview: URL.createObjectURL(file),
-      })
-    );
+        preview:
+          URL.createObjectURL(
+            file
+          ),
+      }));
 
-    setSelectedImages((current) => [
-      ...current,
-      ...mappedFiles,
-    ]);
+    setSelectedImages(
+      (current) => [
+        ...current,
+        ...mappedFiles,
+      ]
+    );
 
     event.target.value = "";
   };
 
-  const removeSelectedImage = (id) => {
-    setSelectedImages((current) => {
-      const image = current.find(
-        (item) => item.id === id
-      );
+  /* =========================================================
+     REMOVE SELECTED IMAGE
+  ========================================================= */
 
-      if (image?.preview) {
-        URL.revokeObjectURL(image.preview);
+  const removeSelectedImage = (
+    id
+  ) => {
+    setSelectedImages(
+      (current) => {
+        const image =
+          current.find(
+            (item) =>
+              item.id === id
+          );
+
+        if (image?.preview) {
+          URL.revokeObjectURL(
+            image.preview
+          );
+        }
+
+        return current.filter(
+          (item) =>
+            item.id !== id
+        );
       }
-
-      return current.filter(
-        (item) => item.id !== id
-      );
-    });
+    );
   };
 
-  const handleVideoSelection = (event) => {
+  /* =========================================================
+     VIDEO SELECTION
+  ========================================================= */
+
+  const handleVideoSelection = (
+    event
+  ) => {
     const files = Array.from(
       event.target.files || []
     );
 
-    const validFiles = files.filter((file) =>
-      file.type.startsWith("video/")
-    );
+    const validFiles =
+      files.filter((file) =>
+        file.type.startsWith(
+          "video/"
+        )
+      );
 
-    const mappedFiles = validFiles.map(
-      (file) => ({
-        id:
-          `${file.name}-${file.lastModified}-${Math.random()}`,
+    const invalidFiles =
+      files.filter(
+        (file) =>
+          !file.type.startsWith(
+            "video/"
+          )
+      );
+
+    if (invalidFiles.length > 0) {
+      setError(
+        "Only video files are allowed."
+      );
+    }
+
+    const mappedFiles =
+      validFiles.map((file) => ({
+        id: `${file.name}-${file.lastModified}-${Math.random()}`,
         file,
-        preview: URL.createObjectURL(file),
-      })
-    );
+        preview:
+          URL.createObjectURL(
+            file
+          ),
+      }));
 
-    setSelectedVideos((current) => [
-      ...current,
-      ...mappedFiles,
-    ]);
+    setSelectedVideos(
+      (current) => [
+        ...current,
+        ...mappedFiles,
+      ]
+    );
 
     event.target.value = "";
   };
 
-  const removeSelectedVideo = (id) => {
-    setSelectedVideos((current) => {
-      const video = current.find(
-        (item) => item.id === id
-      );
+  /* =========================================================
+     REMOVE SELECTED VIDEO
+  ========================================================= */
 
-      if (video?.preview) {
-        URL.revokeObjectURL(video.preview);
+  const removeSelectedVideo = (
+    id
+  ) => {
+    setSelectedVideos(
+      (current) => {
+        const video =
+          current.find(
+            (item) =>
+              item.id === id
+          );
+
+        if (video?.preview) {
+          URL.revokeObjectURL(
+            video.preview
+          );
+        }
+
+        return current.filter(
+          (item) =>
+            item.id !== id
+        );
       }
-
-      return current.filter(
-        (item) => item.id !== id
-      );
-    });
+    );
   };
 
-  const saveProduct = async (event) => {
+  /* =========================================================
+     SAVE PRODUCT
+  ========================================================= */
+
+  const saveProduct = async (
+    event
+  ) => {
     event.preventDefault();
 
     try {
@@ -403,19 +702,32 @@ const SellerProducts = () => {
       setError("");
       setSuccess("");
 
+      /* -----------------------------------------
+         VALIDATION
+      ----------------------------------------- */
+
       if (!form.name.trim()) {
-        throw new Error("Product name is required.");
+        throw new Error(
+          "Product name is required."
+        );
       }
 
       if (!form.category_id) {
-        throw new Error("Please select a category.");
+        throw new Error(
+          "Please select a category."
+        );
       }
 
       if (!form.farmer_id) {
-        throw new Error("Please select a farmer.");
+        throw new Error(
+          "Please select a farmer."
+        );
       }
 
-      if (!form.price || Number(form.price) <= 0) {
+      if (
+        !form.price ||
+        Number(form.price) <= 0
+      ) {
         throw new Error(
           "Price must be greater than ₹0."
         );
@@ -432,10 +744,15 @@ const SellerProducts = () => {
       }
 
       if (
-        form.stock_quantity === "" ||
-        Number(form.stock_quantity) < 0 ||
+        form.stock_quantity ===
+          "" ||
+        Number(
+          form.stock_quantity
+        ) < 0 ||
         !Number.isInteger(
-          Number(form.stock_quantity)
+          Number(
+            form.stock_quantity
+          )
         )
       ) {
         throw new Error(
@@ -443,56 +760,111 @@ const SellerProducts = () => {
         );
       }
 
-      const headers = await getAuthHeaders();
+      if (
+        form.rating !== "" &&
+        (Number(form.rating) < 0 ||
+          Number(form.rating) > 5)
+      ) {
+        throw new Error(
+          "Rating must be between 0 and 5."
+        );
+      }
+
+      /* -----------------------------------------
+         AUTH
+      ----------------------------------------- */
+
+      const headers =
+        await getAuthHeaders();
+
+      /* -----------------------------------------
+         PAYLOAD
+      ----------------------------------------- */
 
       const payload = {
         name: form.name.trim(),
+
         slug:
           form.slug.trim() ||
           slugify(form.name),
+
         description:
-          form.description?.trim() || null,
-        category_id: form.category_id,
-        farmer_id: form.farmer_id,
-        price: Number(form.price),
+          form.description?.trim() ||
+          null,
+
+        category_id:
+          form.category_id,
+
+        farmer_id:
+          form.farmer_id,
+
+        price:
+          Number(form.price),
+
         old_price:
           form.old_price === "" ||
           form.old_price === null
             ? null
-            : Number(form.old_price),
-        stock_quantity: Number(
-          form.stock_quantity
-        ),
+            : Number(
+                form.old_price
+              ),
+
+        stock_quantity:
+          Number(
+            form.stock_quantity
+          ),
+
         rating:
           form.rating === ""
             ? 0
             : Number(form.rating),
-        is_active: Boolean(form.is_active),
+
+        is_active:
+          Boolean(
+            form.is_active
+          ),
       };
 
       let response;
 
+      /* -----------------------------------------
+         UPDATE
+      ----------------------------------------- */
+
       if (editingProduct?.id) {
-        response = await fetch(
-          `${API_URL}/api/seller/products/${editingProduct.id}`,
-          {
-            method: "PATCH",
-            headers,
-            body: JSON.stringify(payload),
-          }
-        );
-      } else {
-        response = await fetch(
-          `${API_URL}/api/seller/products`,
-          {
-            method: "POST",
-            headers,
-            body: JSON.stringify(payload),
-          }
-        );
+        response =
+          await fetch(
+            `${API_URL}/api/seller/products/${editingProduct.id}`,
+            {
+              method: "PATCH",
+              headers,
+              body: JSON.stringify(
+                payload
+              ),
+            }
+          );
       }
 
-      const data = await response.json();
+      /* -----------------------------------------
+         CREATE
+      ----------------------------------------- */
+
+      else {
+        response =
+          await fetch(
+            `${API_URL}/api/seller/products`,
+            {
+              method: "POST",
+              headers,
+              body: JSON.stringify(
+                payload
+              ),
+            }
+          );
+      }
+
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
@@ -504,10 +876,10 @@ const SellerProducts = () => {
       const savedProduct =
         data.product;
 
-      /*
-       * Upload selected images only after the
-       * product has been successfully created.
-       */
+      /* -----------------------------------------
+         UPLOAD SELECTED IMAGES
+      ----------------------------------------- */
+
       if (
         selectedImages.length > 0 &&
         savedProduct?.id
@@ -516,6 +888,10 @@ const SellerProducts = () => {
           savedProduct.id
         );
       }
+
+      /* -----------------------------------------
+         REFRESH PRODUCTS
+      ----------------------------------------- */
 
       await loadProducts();
 
@@ -530,6 +906,7 @@ const SellerProducts = () => {
       }, 700);
     } catch (err) {
       console.error(err);
+
       setError(
         err.message ||
           "Unable to save product."
@@ -539,97 +916,125 @@ const SellerProducts = () => {
     }
   };
 
-  const uploadProductImages = async (
-    productId
-  ) => {
-    if (!selectedImages.length) {
-      return;
-    }
+  /* =========================================================
+     UPLOAD PRODUCT IMAGES
+  ========================================================= */
 
-    try {
-      setUploadingImages(true);
-
-      for (
-        let index = 0;
-        index < selectedImages.length;
-        index++
+  const uploadProductImages =
+    async (productId) => {
+      if (
+        !selectedImages.length
       ) {
-        const selected =
-          selectedImages[index];
-
-        const formData = new FormData();
-
-        formData.append(
-          "image",
-          selected.file
-        );
-
-        formData.append(
-          "is_primary",
-          String(index === 0)
-        );
-
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!session?.access_token) {
-          throw new Error(
-            "Your session has expired. Please login again."
-          );
-        }
-
-        const response =
-          await fetch(
-            `${API_URL}/api/seller/products/${productId}/images`,
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${session.access_token}`,
-              },
-              body: formData,
-            }
-          );
-
-        const data =
-          await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            data.message ||
-              "Unable to upload product image."
-          );
-        }
+        return;
       }
-    } finally {
-      setUploadingImages(false);
-    }
-  };
 
-  const confirmDelete = (product) => {
+      try {
+        setUploadingImages(true);
+
+        for (
+          let index = 0;
+          index <
+          selectedImages.length;
+          index++
+        ) {
+          const selected =
+            selectedImages[index];
+
+          const {
+            data: {
+              session,
+            },
+          } =
+            await supabase.auth.getSession();
+
+          if (
+            !session?.access_token
+          ) {
+            throw new Error(
+              "Your session has expired. Please login again."
+            );
+          }
+
+          const formData =
+            new FormData();
+
+          formData.append(
+            "image",
+            selected.file
+          );
+
+          formData.append(
+            "is_primary",
+            String(index === 0)
+          );
+
+          const response =
+            await fetch(
+              `${API_URL}/api/seller/products/${productId}/images`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+                body: formData,
+              }
+            );
+
+          const data =
+            await response.json();
+
+          if (!response.ok) {
+            throw new Error(
+              data.message ||
+                "Unable to upload product image."
+            );
+          }
+        }
+      } finally {
+        setUploadingImages(
+          false
+        );
+      }
+    };
+
+  /* =========================================================
+     CONFIRM DELETE / DEACTIVATE
+  ========================================================= */
+
+  const confirmDelete = (
+    product
+  ) => {
     setProductToDelete(product);
     setShowDeleteModal(true);
   };
 
+  /* =========================================================
+     DEACTIVATE PRODUCT
+  ========================================================= */
+
   const deleteProduct = async () => {
-    if (!productToDelete?.id) {
+    if (
+      !productToDelete?.id
+    ) {
       return;
     }
 
     try {
       setSaving(true);
       setError("");
+      setSuccess("");
 
       const headers =
         await getAuthHeaders();
 
-      const response = await fetch(
-        `${API_URL}/api/seller/products/${productToDelete.id}`,
-        {
-          method: "DELETE",
-          headers,
-        }
-      );
+      const response =
+        await fetch(
+          `${API_URL}/api/seller/products/${productToDelete.id}`,
+          {
+            method: "DELETE",
+            headers,
+          }
+        );
 
       const data =
         await response.json();
@@ -643,7 +1048,10 @@ const SellerProducts = () => {
 
       await loadProducts();
 
-      setShowDeleteModal(false);
+      setShowDeleteModal(
+        false
+      );
+
       setProductToDelete(null);
 
       setSuccess(
@@ -651,6 +1059,7 @@ const SellerProducts = () => {
       );
     } catch (err) {
       console.error(err);
+
       setError(
         err.message ||
           "Unable to deactivate product."
@@ -660,87 +1069,203 @@ const SellerProducts = () => {
     }
   };
 
-  const openImageManager = (product) => {
+  /* =========================================================
+     IMAGE MANAGER
+  ========================================================= */
+
+  const openImageManager = (
+    product
+  ) => {
     setSelectedProduct(product);
     setSelectedImages([]);
+    setError("");
+    setSuccess("");
     setShowImageModal(true);
   };
 
   const closeImageManager = () => {
-    if (uploadingImages) return;
+    if (uploadingImages) {
+      return;
+    }
+
+    selectedImages.forEach(
+      (image) => {
+        if (image.preview) {
+          URL.revokeObjectURL(
+            image.preview
+          );
+        }
+      }
+    );
 
     setShowImageModal(false);
     setSelectedProduct(null);
     setSelectedImages([]);
   };
 
-  const uploadImagesFromManager = async () => {
-    if (
-      !selectedProduct?.id ||
-      selectedImages.length === 0
-    ) {
-      return;
-    }
+  /* =========================================================
+     UPLOAD FROM IMAGE MANAGER
+  ========================================================= */
 
-    try {
-      setUploadingImages(true);
-      setError("");
-      setSuccess("");
-
-      /*
-       * When adding images through the manager,
-       * make the first uploaded image primary only
-       * when the product currently has no images.
-       */
-      const existingImages =
-        getProductImages(
-          selectedProduct
-        );
-
-      for (
-        let index = 0;
-        index < selectedImages.length;
-        index++
+  const uploadImagesFromManager =
+    async () => {
+      if (
+        !selectedProduct?.id ||
+        selectedImages.length === 0
       ) {
-        const selected =
-          selectedImages[index];
+        return;
+      }
 
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+      try {
+        setUploadingImages(true);
+        setError("");
+        setSuccess("");
 
-        if (!session?.access_token) {
-          throw new Error(
-            "Your session has expired. Please login again."
+        const existingImages =
+          getProductImages(
+            selectedProduct
+          );
+
+        for (
+          let index = 0;
+          index <
+          selectedImages.length;
+          index++
+        ) {
+          const selected =
+            selectedImages[index];
+
+          const {
+            data: {
+              session,
+            },
+          } =
+            await supabase.auth.getSession();
+
+          if (
+            !session?.access_token
+          ) {
+            throw new Error(
+              "Your session has expired. Please login again."
+            );
+          }
+
+          const formData =
+            new FormData();
+
+          formData.append(
+            "image",
+            selected.file
+          );
+
+          formData.append(
+            "is_primary",
+            String(
+              existingImages.length ===
+                0 &&
+                index === 0
+            )
+          );
+
+          const response =
+            await fetch(
+              `${API_URL}/api/seller/products/${selectedProduct.id}/images`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+                body: formData,
+              }
+            );
+
+          const data =
+            await response.json();
+
+          if (!response.ok) {
+            throw new Error(
+              data.message ||
+                "Unable to upload image."
+            );
+          }
+        }
+
+        /* -----------------------------------------
+           GET FRESH PRODUCT DATA
+        ----------------------------------------- */
+
+        const loadedProducts =
+          await loadProducts();
+
+        const updatedProduct =
+          loadedProducts.find(
+            (item) =>
+              item.id ===
+              selectedProduct.id
+          );
+
+        if (updatedProduct) {
+          setSelectedProduct(
+            updatedProduct
           );
         }
 
-        const formData =
-          new FormData();
-
-        formData.append(
-          "image",
-          selected.file
+        selectedImages.forEach(
+          (image) => {
+            if (image.preview) {
+              URL.revokeObjectURL(
+                image.preview
+              );
+            }
+          }
         );
 
-        formData.append(
-          "is_primary",
-          String(
-            existingImages.length === 0 &&
-              index === 0
-          )
+        setSelectedImages([]);
+
+        setSuccess(
+          "Product images uploaded successfully."
         );
+      } catch (err) {
+        console.error(err);
+
+        setError(
+          err.message ||
+            "Unable to upload images."
+        );
+      } finally {
+        setUploadingImages(
+          false
+        );
+      }
+    };
+
+  /* =========================================================
+     DELETE PRODUCT IMAGE
+  ========================================================= */
+
+  const deleteProductImage =
+    async (imageId) => {
+      if (
+        !selectedProduct?.id ||
+        !imageId
+      ) {
+        return;
+      }
+
+      try {
+        setUploadingImages(true);
+        setError("");
+        setSuccess("");
+
+        const headers =
+          await getAuthHeaders();
 
         const response =
           await fetch(
-            `${API_URL}/api/seller/products/${selectedProduct.id}/images`,
+            `${API_URL}/api/seller/products/${selectedProduct.id}/images/${imageId}`,
             {
-              method: "POST",
-              headers: {
-                Authorization:
-                  `Bearer ${session.access_token}`,
-              },
-              body: formData,
+              method: "DELETE",
+              headers,
             }
           );
 
@@ -750,206 +1275,164 @@ const SellerProducts = () => {
         if (!response.ok) {
           throw new Error(
             data.message ||
-              "Unable to upload image."
+              "Unable to delete image."
           );
         }
-      }
 
-      await loadProducts();
+        /* -----------------------------------------
+           GET FRESH PRODUCT DATA
+        ----------------------------------------- */
 
-      const updatedProduct =
-        products.find(
-          (item) =>
-            item.id ===
-            selectedProduct.id
+        const loadedProducts =
+          await loadProducts();
+
+        const updatedProduct =
+          loadedProducts.find(
+            (item) =>
+              item.id ===
+              selectedProduct.id
+          );
+
+        if (updatedProduct) {
+          setSelectedProduct(
+            updatedProduct
+          );
+        }
+
+        setSuccess(
+          "Product image deleted successfully."
         );
+      } catch (err) {
+        console.error(err);
 
-      if (updatedProduct) {
-        setSelectedProduct(
-          updatedProduct
-        );
-      }
-
-      setSelectedImages([]);
-
-      setSuccess(
-        "Product images uploaded successfully."
-      );
-    } catch (err) {
-      console.error(err);
-      setError(
-        err.message ||
-          "Unable to upload images."
-      );
-    } finally {
-      setUploadingImages(false);
-    }
-  };
-
-  const deleteProductImage = async (
-    imageId
-  ) => {
-    if (
-      !selectedProduct?.id ||
-      !imageId
-    ) {
-      return;
-    }
-
-    try {
-      setUploadingImages(true);
-      setError("");
-
-      const headers =
-        await getAuthHeaders();
-
-      const response =
-        await fetch(
-          `${API_URL}/api/seller/products/${selectedProduct.id}/images/${imageId}`,
-          {
-            method: "DELETE",
-            headers,
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
+        setError(
+          err.message ||
             "Unable to delete image."
         );
-      }
-
-      await loadProducts();
-
-      setSelectedProduct(
-        (current) => {
-          if (!current) {
-            return null;
-          }
-
-          return {
-            ...current,
-            product_images:
-              getProductImages(
-                current
-              ).filter(
-                (image) =>
-                  image.id !==
-                  imageId
-              ),
-          };
-        }
-      );
-
-      setSuccess(
-        "Product image deleted successfully."
-      );
-    } catch (err) {
-      console.error(err);
-      setError(
-        err.message ||
-          "Unable to delete image."
-      );
-    } finally {
-      setUploadingImages(false);
-    }
-  };
-
-  const setPrimaryImage = async (
-    imageId
-  ) => {
-    if (
-      !selectedProduct?.id ||
-      !imageId
-    ) {
-      return;
-    }
-
-    try {
-      setUploadingImages(true);
-      setError("");
-
-      const headers =
-        await getAuthHeaders();
-
-      const response =
-        await fetch(
-          `${API_URL}/api/seller/products/${selectedProduct.id}/images/${imageId}/primary`,
-          {
-            method: "PATCH",
-            headers,
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Unable to set primary image."
+      } finally {
+        setUploadingImages(
+          false
         );
       }
+    };
 
-      await loadProducts();
+  /* =========================================================
+     SET PRIMARY IMAGE
+  ========================================================= */
 
-      setSelectedProduct(
-        (current) => {
-          if (!current) {
-            return null;
-          }
+  const setPrimaryImage =
+    async (imageId) => {
+      if (
+        !selectedProduct?.id ||
+        !imageId
+      ) {
+        return;
+      }
 
-          return {
-            ...current,
-            product_images:
-              getProductImages(
-                current
-              ).map((image) => ({
-                ...image,
-                is_primary:
-                  image.id ===
-                  imageId,
-              })),
-          };
+      try {
+        setUploadingImages(true);
+        setError("");
+        setSuccess("");
+
+        const headers =
+          await getAuthHeaders();
+
+        const response =
+          await fetch(
+            `${API_URL}/api/seller/products/${selectedProduct.id}/images/${imageId}/primary`,
+            {
+              method: "PATCH",
+              headers,
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              "Unable to set primary image."
+          );
         }
-      );
 
-      setSuccess(
-        "Primary image updated successfully."
-      );
-    } catch (err) {
-      console.error(err);
-      setError(
-        err.message ||
-          "Unable to update primary image."
-      );
-    } finally {
-      setUploadingImages(false);
-    }
-  };
+        /* -----------------------------------------
+           GET FRESH PRODUCT DATA
+        ----------------------------------------- */
+
+        const loadedProducts =
+          await loadProducts();
+
+        const updatedProduct =
+          loadedProducts.find(
+            (item) =>
+              item.id ===
+              selectedProduct.id
+          );
+
+        if (updatedProduct) {
+          setSelectedProduct(
+            updatedProduct
+          );
+        }
+
+        setSuccess(
+          "Primary image updated successfully."
+        );
+      } catch (err) {
+        console.error(err);
+
+        setError(
+          err.message ||
+            "Unable to update primary image."
+        );
+      } finally {
+        setUploadingImages(
+          false
+        );
+      }
+    };
+
+  /* =========================================================
+     RENDER
+  ========================================================= */
 
   return (
     <div className="seller-products-page">
+
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
+
       <div className="seller-products-header">
+
         <div>
-          <h1>Products</h1>
+          <h1>
+            Products
+          </h1>
+
           <p>
             Manage your products,
-            inventory and product images.
+            inventory and product
+            images.
           </p>
         </div>
 
         <button
           type="button"
           className="seller-primary-btn"
-          onClick={openAddModal}
+          onClick={
+            openAddModal
+          }
         >
           + Add Product
         </button>
+
       </div>
+
+      {/* =====================================================
+          ALERTS
+      ===================================================== */}
 
       {error && (
         <div className="seller-alert seller-alert-error">
@@ -963,40 +1446,65 @@ const SellerProducts = () => {
         </div>
       )}
 
+      {/* =====================================================
+          TOOLBAR
+      ===================================================== */}
+
       <div className="seller-products-toolbar">
+
         <input
           type="text"
           value={search}
           onChange={(event) =>
-            setSearch(event.target.value)
+            setSearch(
+              event.target.value
+            )
           }
           placeholder="Search products..."
         />
 
         <select
-          value={categoryFilter}
+          value={
+            categoryFilter
+          }
           onChange={(event) =>
             setCategoryFilter(
               event.target.value
             )
           }
         >
+
           <option value="all">
             All Categories
           </option>
 
-          {categories.map((category) => (
-            <option
-              key={category.id}
-              value={category.id}
-            >
-              {category.name}
-            </option>
-          ))}
+          {categories.map(
+            (category) => (
+              <option
+                key={
+                  category.id
+                }
+                value={
+                  category.id
+                }
+              >
+                {
+                  category.name
+                }
+              </option>
+            )
+          )}
+
         </select>
+
       </div>
 
+      {/* =====================================================
+          PRODUCT TABLE
+      ===================================================== */}
+
       <div className="seller-products-table-wrapper">
+
         {loading ? (
           <div className="seller-products-loading">
             Loading products...
@@ -1004,29 +1512,62 @@ const SellerProducts = () => {
         ) : filteredProducts.length ===
           0 ? (
           <div className="seller-products-empty">
-            <h3>No products found</h3>
+
+            <h3>
+              No products found
+            </h3>
+
             <p>
-              Add your first product to
-              get started.
+              Add your first
+              product to get
+              started.
             </p>
+
           </div>
         ) : (
           <table className="seller-products-table">
+
             <thead>
+
               <tr>
-                <th>Product</th>
-                <th>Category</th>
-                <th>Price</th>
-                <th>Stock</th>
-                <th>Status</th>
-                <th>Images</th>
-                <th>Actions</th>
+
+                <th>
+                  Product
+                </th>
+
+                <th>
+                  Category
+                </th>
+
+                <th>
+                  Price
+                </th>
+
+                <th>
+                  Stock
+                </th>
+
+                <th>
+                  Status
+                </th>
+
+                <th>
+                  Images
+                </th>
+
+                <th>
+                  Actions
+                </th>
+
               </tr>
+
             </thead>
 
             <tbody>
+
               {filteredProducts.map(
                 (product) => {
+
                   const images =
                     getProductImages(
                       product
@@ -1041,10 +1582,17 @@ const SellerProducts = () => {
 
                   return (
                     <tr
-                      key={product.id}
+                      key={
+                        product.id
+                      }
                     >
+
+                      {/* PRODUCT */}
+
                       <td>
+
                         <div className="seller-product-name-cell">
+
                           {primaryImage ? (
                             <img
                               src={getImageUrl(
@@ -1062,6 +1610,7 @@ const SellerProducts = () => {
                           )}
 
                           <div>
+
                             <strong>
                               {
                                 product.name
@@ -1073,9 +1622,14 @@ const SellerProducts = () => {
                                 product.slug
                               }
                             </span>
+
                           </div>
+
                         </div>
+
                       </td>
+
+                      {/* CATEGORY */}
 
                       <td>
                         {
@@ -1085,7 +1639,10 @@ const SellerProducts = () => {
                         }
                       </td>
 
+                      {/* PRICE */}
+
                       <td>
+
                         {formatPrice(
                           product.price
                         )}
@@ -1093,16 +1650,23 @@ const SellerProducts = () => {
                         {product.old_price !==
                           null &&
                           product.old_price !==
-                            undefined && (
+                            undefined &&
+                          Number(
+                            product.old_price
+                          ) > 0 && (
                             <span className="seller-old-price">
                               {formatPrice(
                                 product.old_price
                               )}
                             </span>
                           )}
+
                       </td>
 
+                      {/* STOCK */}
+
                       <td>
+
                         <span
                           className={
                             Number(
@@ -1116,9 +1680,13 @@ const SellerProducts = () => {
                             product.stock_quantity
                           }
                         </span>
+
                       </td>
 
+                      {/* STATUS */}
+
                       <td>
+
                         <span
                           className={
                             product.is_active
@@ -1130,9 +1698,13 @@ const SellerProducts = () => {
                             ? "Active"
                             : "Inactive"}
                         </span>
+
                       </td>
 
+                      {/* IMAGES */}
+
                       <td>
+
                         <button
                           type="button"
                           className="seller-secondary-btn"
@@ -1148,10 +1720,15 @@ const SellerProducts = () => {
                           }
                           )
                         </button>
+
                       </td>
 
+                      {/* ACTIONS */}
+
                       <td>
+
                         <div className="seller-action-buttons">
+
                           <button
                             type="button"
                             className="seller-edit-btn"
@@ -1164,33 +1741,51 @@ const SellerProducts = () => {
                             Edit
                           </button>
 
-                          <button
-                            type="button"
-                            className="seller-delete-btn"
-                            onClick={() =>
-                              confirmDelete(
-                                product
-                              )
-                            }
-                          >
-                            Deactivate
-                          </button>
+                          {product.is_active && (
+                            <button
+                              type="button"
+                              className="seller-delete-btn"
+                              onClick={() =>
+                                confirmDelete(
+                                  product
+                                )
+                              }
+                            >
+                              Deactivate
+                            </button>
+                          )}
+
                         </div>
+
                       </td>
+
                     </tr>
                   );
                 }
               )}
+
             </tbody>
+
           </table>
         )}
+
       </div>
+
+      {/* =====================================================
+          ADD / EDIT PRODUCT MODAL
+      ===================================================== */}
 
       {showModal && (
         <div className="seller-modal-overlay">
+
           <div className="seller-modal">
+
+            {/* HEADER */}
+
             <div className="seller-modal-header">
+
               <div>
+
                 <h2>
                   {editingProduct
                     ? "Edit Product"
@@ -1201,24 +1796,39 @@ const SellerProducts = () => {
                   Enter the product
                   information below.
                 </p>
+
               </div>
 
               <button
                 type="button"
                 className="seller-modal-close"
-                onClick={closeModal}
-                disabled={saving}
+                onClick={
+                  closeModal
+                }
+                disabled={
+                  saving
+                }
               >
                 ×
               </button>
+
             </div>
 
+            {/* FORM */}
+
             <form
-              onSubmit={saveProduct}
+              onSubmit={
+                saveProduct
+              }
               className="seller-product-form"
             >
+
               <div className="seller-form-grid">
+
+                {/* PRODUCT NAME */}
+
                 <div className="seller-form-group">
+
                   <label>
                     Product Name
                   </label>
@@ -1226,16 +1836,22 @@ const SellerProducts = () => {
                   <input
                     type="text"
                     name="name"
-                    value={form.name}
+                    value={
+                      form.name
+                    }
                     onChange={
                       handleNameChange
                     }
                     placeholder="Product name"
                     required
                   />
+
                 </div>
 
+                {/* SLUG */}
+
                 <div className="seller-form-group">
+
                   <label>
                     Product Slug
                   </label>
@@ -1243,16 +1859,22 @@ const SellerProducts = () => {
                   <input
                     type="text"
                     name="slug"
-                    value={form.slug}
+                    value={
+                      form.slug
+                    }
                     onChange={
                       handleFormChange
                     }
                     placeholder="product-slug"
                     required
                   />
+
                 </div>
 
+                {/* CATEGORY */}
+
                 <div className="seller-form-group">
+
                   <label>
                     Category
                   </label>
@@ -1267,12 +1889,15 @@ const SellerProducts = () => {
                     }
                     required
                   >
+
                     <option value="">
                       Select category
                     </option>
 
                     {categories.map(
-                      (category) => (
+                      (
+                        category
+                      ) => (
                         <option
                           key={
                             category.id
@@ -1287,10 +1912,15 @@ const SellerProducts = () => {
                         </option>
                       )
                     )}
+
                   </select>
+
                 </div>
 
+                {/* FARMER */}
+
                 <div className="seller-form-group">
+
                   <label>
                     Farmer
                   </label>
@@ -1305,12 +1935,15 @@ const SellerProducts = () => {
                     }
                     required
                   >
+
                     <option value="">
                       Select farmer
                     </option>
 
                     {farmers.map(
-                      (farmer) => (
+                      (
+                        farmer
+                      ) => (
                         <option
                           key={
                             farmer.id
@@ -1319,14 +1952,21 @@ const SellerProducts = () => {
                             farmer.id
                           }
                         >
-                          {farmer.name}
+                          {
+                            farmer.name
+                          }
                         </option>
                       )
                     )}
+
                   </select>
+
                 </div>
 
+                {/* PRICE */}
+
                 <div className="seller-form-group">
+
                   <label>
                     Price
                   </label>
@@ -1336,15 +1976,21 @@ const SellerProducts = () => {
                     name="price"
                     min="0.01"
                     step="0.01"
-                    value={form.price}
+                    value={
+                      form.price
+                    }
                     onChange={
                       handleFormChange
                     }
                     required
                   />
+
                 </div>
 
+                {/* OLD PRICE */}
+
                 <div className="seller-form-group">
+
                   <label>
                     Old Price
                   </label>
@@ -1362,9 +2008,13 @@ const SellerProducts = () => {
                     }
                     placeholder="Optional"
                   />
+
                 </div>
 
+                {/* STOCK */}
+
                 <div className="seller-form-group">
+
                   <label>
                     Stock Quantity
                   </label>
@@ -1382,9 +2032,13 @@ const SellerProducts = () => {
                     }
                     required
                   />
+
                 </div>
 
+                {/* RATING */}
+
                 <div className="seller-form-group">
+
                   <label>
                     Rating
                   </label>
@@ -1395,14 +2049,20 @@ const SellerProducts = () => {
                     min="0"
                     max="5"
                     step="0.1"
-                    value={form.rating}
+                    value={
+                      form.rating
+                    }
                     onChange={
                       handleFormChange
                     }
                   />
+
                 </div>
 
+                {/* DESCRIPTION */}
+
                 <div className="seller-form-group seller-form-group-full">
+
                   <label>
                     Description
                   </label>
@@ -1418,10 +2078,15 @@ const SellerProducts = () => {
                     rows="5"
                     placeholder="Product description"
                   />
+
                 </div>
 
+                {/* ACTIVE */}
+
                 <div className="seller-form-group seller-form-group-full">
+
                   <label className="seller-checkbox-label">
+
                     <input
                       type="checkbox"
                       name="is_active"
@@ -1434,10 +2099,15 @@ const SellerProducts = () => {
                     />
 
                     Product is active
+
                   </label>
+
                 </div>
 
+                {/* PRODUCT IMAGES */}
+
                 <div className="seller-form-group seller-form-group-full">
+
                   <label>
                     Product Images
                   </label>
@@ -1453,22 +2123,27 @@ const SellerProducts = () => {
 
                   <small>
                     Images will be
-                    uploaded to Supabase
-                    Storage after the
-                    product is saved.
+                    uploaded to
+                    Supabase Storage
+                    after the product
+                    is saved.
                   </small>
 
                   {selectedImages.length >
                     0 && (
                     <div className="seller-image-preview-grid">
+
                       {selectedImages.map(
-                        (image) => (
+                        (
+                          image
+                        ) => (
                           <div
                             key={
                               image.id
                             }
                             className="seller-image-preview"
                           >
+
                             <img
                               src={
                                 image.preview
@@ -1489,14 +2164,20 @@ const SellerProducts = () => {
                             >
                               ×
                             </button>
+
                           </div>
                         )
                       )}
+
                     </div>
                   )}
+
                 </div>
 
+                {/* PRODUCT VIDEOS */}
+
                 <div className="seller-form-group seller-form-group-full">
+
                   <label>
                     Product Videos
                   </label>
@@ -1511,24 +2192,29 @@ const SellerProducts = () => {
                   />
 
                   <small>
-                    Video preview is kept
-                    in the browser for
-                    now. Persistent
-                    product video storage
-                    will be added separately.
+                    Video preview is
+                    kept in the browser
+                    for now. Persistent
+                    product video
+                    storage will be
+                    added separately.
                   </small>
 
                   {selectedVideos.length >
                     0 && (
                     <div className="seller-video-preview-list">
+
                       {selectedVideos.map(
-                        (video) => (
+                        (
+                          video
+                        ) => (
                           <div
                             key={
                               video.id
                             }
                             className="seller-video-preview"
                           >
+
                             <video
                               src={
                                 video.preview
@@ -1546,20 +2232,31 @@ const SellerProducts = () => {
                             >
                               Remove
                             </button>
+
                           </div>
                         )
                       )}
+
                     </div>
                   )}
+
                 </div>
+
               </div>
 
+              {/* MODAL FOOTER */}
+
               <div className="seller-modal-footer">
+
                 <button
                   type="button"
                   className="seller-secondary-btn"
-                  onClick={closeModal}
-                  disabled={saving}
+                  onClick={
+                    closeModal
+                  }
+                  disabled={
+                    saving
+                  }
                 >
                   Cancel
                 </button>
@@ -1572,6 +2269,7 @@ const SellerProducts = () => {
                     uploadingImages
                   }
                 >
+
                   {saving
                     ? "Saving..."
                     : uploadingImages
@@ -1579,28 +2277,40 @@ const SellerProducts = () => {
                     : editingProduct
                     ? "Update Product"
                     : "Create Product"}
+
                 </button>
+
               </div>
+
             </form>
+
           </div>
+
         </div>
       )}
 
+      {/* =====================================================
+          DELETE / DEACTIVATE MODAL
+      ===================================================== */}
+
       {showDeleteModal && (
         <div className="seller-modal-overlay">
+
           <div className="seller-confirm-modal">
+
             <h2>
               Deactivate Product?
             </h2>
 
             <p>
-              Are you sure you want to
-              deactivate "
-              {productToDelete?.name}"
-              ?
+              Are you sure you want
+              to deactivate "
+              {productToDelete?.name}
+              "?
             </p>
 
             <div className="seller-modal-footer">
+
               <button
                 type="button"
                 className="seller-secondary-btn"
@@ -1609,7 +2319,9 @@ const SellerProducts = () => {
                     false
                   )
                 }
-                disabled={saving}
+                disabled={
+                  saving
+                }
               >
                 Cancel
               </button>
@@ -1620,23 +2332,38 @@ const SellerProducts = () => {
                 onClick={
                   deleteProduct
                 }
-                disabled={saving}
+                disabled={
+                  saving
+                }
               >
                 {saving
                   ? "Processing..."
                   : "Deactivate"}
               </button>
+
             </div>
+
           </div>
+
         </div>
       )}
+
+      {/* =====================================================
+          IMAGE MANAGER MODAL
+      ===================================================== */}
 
       {showImageModal &&
         selectedProduct && (
           <div className="seller-modal-overlay">
+
             <div className="seller-modal seller-image-manager-modal">
+
+              {/* HEADER */}
+
               <div className="seller-modal-header">
+
                 <div>
+
                   <h2>
                     Product Images
                   </h2>
@@ -1646,6 +2373,7 @@ const SellerProducts = () => {
                       selectedProduct.name
                     }
                   </p>
+
                 </div>
 
                 <button
@@ -1660,10 +2388,15 @@ const SellerProducts = () => {
                 >
                   ×
                 </button>
+
               </div>
 
               <div className="seller-image-manager">
+
+                {/* ADD IMAGES */}
+
                 <div className="seller-form-group">
+
                   <label>
                     Add Images
                   </label>
@@ -1676,19 +2409,26 @@ const SellerProducts = () => {
                       handleImageSelection
                     }
                   />
+
                 </div>
+
+                {/* SELECTED IMAGE PREVIEWS */}
 
                 {selectedImages.length >
                   0 && (
                   <div className="seller-image-preview-grid">
+
                     {selectedImages.map(
-                      (image) => (
+                      (
+                        image
+                      ) => (
                         <div
                           key={
                             image.id
                           }
                           className="seller-image-preview"
                         >
+
                           <img
                             src={
                               image.preview
@@ -1709,11 +2449,15 @@ const SellerProducts = () => {
                           >
                             ×
                           </button>
+
                         </div>
                       )
                     )}
+
                   </div>
                 )}
+
+                {/* UPLOAD BUTTON */}
 
                 <button
                   type="button"
@@ -1732,7 +2476,10 @@ const SellerProducts = () => {
                     : "Upload Images"}
                 </button>
 
+                {/* EXISTING IMAGES */}
+
                 <div className="seller-existing-images">
+
                   <h3>
                     Existing Images
                   </h3>
@@ -1746,10 +2493,13 @@ const SellerProducts = () => {
                     </p>
                   ) : (
                     <div className="seller-image-manager-grid">
+
                       {getProductImages(
                         selectedProduct
                       ).map(
-                        (image) => (
+                        (
+                          image
+                        ) => (
                           <div
                             key={
                               image.id
@@ -1760,6 +2510,7 @@ const SellerProducts = () => {
                                 : ""
                             }`}
                           >
+
                             <img
                               src={getImageUrl(
                                 image.storage_path
@@ -1774,6 +2525,7 @@ const SellerProducts = () => {
                             )}
 
                             <div className="seller-managed-image-actions">
+
                               {!image.is_primary && (
                                 <button
                                   type="button"
@@ -1803,17 +2555,25 @@ const SellerProducts = () => {
                               >
                                 Delete
                               </button>
+
                             </div>
+
                           </div>
                         )
                       )}
+
                     </div>
                   )}
+
                 </div>
+
               </div>
+
             </div>
+
           </div>
         )}
+
     </div>
   );
 };

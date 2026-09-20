@@ -13,76 +13,30 @@ import {
   IndianRupee,
 } from "lucide-react";
 
+import { supabase } from "../lib/supabase";
 import "../styles/SellerCoupons.css";
 
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
+
+const emptyForm = {
+  code: "",
+  discountType: "percentage",
+  discountValue: "",
+  minOrder: "",
+  maxDiscount: "",
+  usageLimit: "",
+  startDate: "",
+  expiryDate: "",
+  active: true,
+};
+
 function SellerCoupons() {
-  const STORAGE_KEY = "beePureCoupons";
+  const [coupons, setCoupons] = useState([]);
 
-  const defaultCoupons = [
-    {
-      id: 1,
-      code: "BEE10",
-      discountType: "percentage",
-      discountValue: 10,
-      minOrder: 500,
-      maxDiscount: 200,
-      usageLimit: 100,
-      usedCount: 12,
-      startDate: "2026-01-01",
-      expiryDate: "2026-12-31",
-      active: true,
-    },
-    {
-      id: 2,
-      code: "SAVE100",
-      discountType: "fixed",
-      discountValue: 100,
-      minOrder: 999,
-      maxDiscount: 0,
-      usageLimit: 50,
-      usedCount: 5,
-      startDate: "2026-02-01",
-      expiryDate: "2026-10-31",
-      active: true,
-    },
-    {
-      id: 3,
-      code: "FARM20",
-      discountType: "percentage",
-      discountValue: 20,
-      minOrder: 750,
-      maxDiscount: 300,
-      usageLimit: 50,
-      usedCount: 50,
-      startDate: "2026-01-01",
-      expiryDate: "2026-06-30",
-      active: false,
-    },
-  ];
-
-  const emptyForm = {
-    code: "",
-    discountType: "percentage",
-    discountValue: "",
-    minOrder: "",
-    maxDiscount: "",
-    usageLimit: "",
-    startDate: "",
-    expiryDate: "",
-    active: true,
-  };
-
-  const [coupons, setCoupons] = useState(() => {
-    try {
-      const savedCoupons = localStorage.getItem(STORAGE_KEY);
-
-      return savedCoupons
-        ? JSON.parse(savedCoupons)
-        : defaultCoupons;
-    } catch {
-      return defaultCoupons;
-    }
-  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -90,46 +44,200 @@ function SellerCoupons() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState(null);
 
-  const [formData, setFormData] = useState(emptyForm);
+  const [formData, setFormData] =
+    useState(emptyForm);
 
   const [formError, setFormError] = useState("");
+  const [pageError, setPageError] = useState("");
 
-  // =========================================
-  // SAVE TO LOCAL STORAGE
-  // =========================================
+  // =========================================================
+  // GET AUTH TOKEN
+  // =========================================================
+
+  const getAccessToken = async () => {
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
+
+    if (error) {
+      throw new Error(
+        error.message ||
+          "Unable to get authentication session."
+      );
+    }
+
+    if (!session?.access_token) {
+      throw new Error(
+        "Please login again."
+      );
+    }
+
+    return session.access_token;
+  };
+
+  // =========================================================
+  // FORMAT DATABASE COUPON
+  // =========================================================
+
+  const mapCoupon = (coupon) => {
+    return {
+      id: coupon.id,
+
+      code: coupon.code || "",
+
+      discountType:
+        coupon.discount_type || "percentage",
+
+      discountValue:
+        Number(coupon.discount_value || 0),
+
+      minOrder:
+        Number(
+          coupon.minimum_order_amount || 0
+        ),
+
+      maxDiscount:
+        coupon.maximum_discount === null ||
+        coupon.maximum_discount === undefined
+          ? 0
+          : Number(coupon.maximum_discount),
+
+      usageLimit:
+        coupon.usage_limit === null ||
+        coupon.usage_limit === undefined
+          ? null
+          : Number(coupon.usage_limit),
+
+      usedCount:
+        Number(coupon.used_count || 0),
+
+      startDate:
+        coupon.starts_at
+          ? coupon.starts_at.slice(0, 10)
+          : "",
+
+      expiryDate:
+        coupon.expires_at
+          ? coupon.expires_at.slice(0, 10)
+          : "",
+
+      active:
+        Boolean(coupon.is_active),
+    };
+  };
+
+  // =========================================================
+  // LOAD SELLER COUPONS
+  // =========================================================
+
+  const loadCoupons = async () => {
+    try {
+      setLoading(true);
+      setPageError("");
+
+      const token =
+        await getAccessToken();
+
+      const response = await fetch(
+        `${API_URL}/api/coupons/seller`,
+        {
+          method: "GET",
+          headers: {
+            Authorization:
+              `Bearer ${token}`,
+            "Content-Type":
+              "application/json",
+          },
+        }
+      );
+
+      const result =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.message ||
+            "Unable to load coupons."
+        );
+      }
+
+      const mappedCoupons =
+        (result.coupons || []).map(
+          mapCoupon
+        );
+
+      setCoupons(mappedCoupons);
+    } catch (error) {
+      console.error(
+        "Load coupons error:",
+        error
+      );
+
+      setPageError(
+        error.message ||
+          "Unable to load coupons."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =========================================================
+  // INITIAL LOAD
+  // =========================================================
 
   useEffect(() => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify(coupons)
-    );
-  }, [coupons]);
+    loadCoupons();
+  }, []);
 
-  // =========================================
+  // =========================================================
   // DATE STATUS
-  // =========================================
+  // =========================================================
 
   const getCouponStatus = (coupon) => {
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
 
-    const startDate = coupon.startDate
-      ? new Date(`${coupon.startDate}T00:00:00`)
-      : null;
+    today.setHours(
+      0,
+      0,
+      0,
+      0
+    );
 
-    const expiryDate = coupon.expiryDate
-      ? new Date(`${coupon.expiryDate}T23:59:59`)
-      : null;
+    const startDate =
+      coupon.startDate
+        ? new Date(
+            `${coupon.startDate}T00:00:00`
+          )
+        : null;
 
-    if (coupon.usedCount >= coupon.usageLimit) {
+    const expiryDate =
+      coupon.expiryDate
+        ? new Date(
+            `${coupon.expiryDate}T23:59:59`
+          )
+        : null;
+
+    if (
+      coupon.usageLimit !== null &&
+      coupon.usedCount >=
+        coupon.usageLimit
+    ) {
       return "limit";
     }
 
-    if (expiryDate && today > expiryDate) {
+    if (
+      expiryDate &&
+      today > expiryDate
+    ) {
       return "expired";
     }
 
-    if (startDate && today < startDate) {
+    if (
+      startDate &&
+      today < startDate
+    ) {
       return "scheduled";
     }
 
@@ -140,99 +248,154 @@ function SellerCoupons() {
     return "active";
   };
 
-  // =========================================
+  // =========================================================
   // FILTER COUPONS
-  // =========================================
+  // =========================================================
 
   const filteredCoupons = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const query =
+      searchQuery
+        .trim()
+        .toLowerCase();
 
-    return coupons.filter((coupon) => {
-      const matchesSearch =
-        !query ||
-        coupon.code.toLowerCase().includes(query);
+    return coupons.filter(
+      (coupon) => {
+        const matchesSearch =
+          !query ||
+          coupon.code
+            .toLowerCase()
+            .includes(query);
 
-      const status = getCouponStatus(coupon);
+        const status =
+          getCouponStatus(coupon);
 
-      let matchesStatus = true;
+        let matchesStatus = true;
 
-      if (statusFilter === "active") {
-        matchesStatus = status === "active";
+        if (
+          statusFilter === "active"
+        ) {
+          matchesStatus =
+            status === "active";
+        }
+
+        if (
+          statusFilter === "inactive"
+        ) {
+          matchesStatus =
+            status === "inactive";
+        }
+
+        if (
+          statusFilter === "expired"
+        ) {
+          matchesStatus =
+            status === "expired" ||
+            status === "limit";
+        }
+
+        if (
+          statusFilter === "scheduled"
+        ) {
+          matchesStatus =
+            status === "scheduled";
+        }
+
+        return (
+          matchesSearch &&
+          matchesStatus
+        );
       }
+    );
+  }, [
+    coupons,
+    searchQuery,
+    statusFilter,
+  ]);
 
-      if (statusFilter === "inactive") {
-        matchesStatus = status === "inactive";
-      }
-
-      if (statusFilter === "expired") {
-        matchesStatus =
-          status === "expired" ||
-          status === "limit";
-      }
-
-      if (statusFilter === "scheduled") {
-        matchesStatus = status === "scheduled";
-      }
-
-      return matchesSearch && matchesStatus;
-    });
-  }, [coupons, searchQuery, statusFilter]);
-
-  // =========================================
+  // =========================================================
   // OPEN ADD MODAL
-  // =========================================
+  // =========================================================
 
   const openAddModal = () => {
     setEditingCoupon(null);
-    setFormData(emptyForm);
+    setFormData({
+      ...emptyForm,
+    });
     setFormError("");
     setIsModalOpen(true);
   };
 
-  // =========================================
+  // =========================================================
   // OPEN EDIT MODAL
-  // =========================================
+  // =========================================================
 
   const openEditModal = (coupon) => {
     setEditingCoupon(coupon);
 
     setFormData({
       code: coupon.code,
-      discountType: coupon.discountType,
-      discountValue: coupon.discountValue,
-      minOrder: coupon.minOrder,
-      maxDiscount: coupon.maxDiscount,
-      usageLimit: coupon.usageLimit,
-      startDate: coupon.startDate,
-      expiryDate: coupon.expiryDate,
-      active: coupon.active,
+
+      discountType:
+        coupon.discountType,
+
+      discountValue:
+        coupon.discountValue,
+
+      minOrder:
+        coupon.minOrder,
+
+      maxDiscount:
+        coupon.maxDiscount,
+
+      usageLimit:
+        coupon.usageLimit ?? "",
+
+      startDate:
+        coupon.startDate,
+
+      expiryDate:
+        coupon.expiryDate,
+
+      active:
+        coupon.active,
     });
 
     setFormError("");
     setIsModalOpen(true);
   };
 
-  // =========================================
+  // =========================================================
   // CLOSE MODAL
-  // =========================================
+  // =========================================================
 
   const closeModal = () => {
+    if (saving) {
+      return;
+    }
+
     setIsModalOpen(false);
     setEditingCoupon(null);
-    setFormData(emptyForm);
+    setFormData({
+      ...emptyForm,
+    });
     setFormError("");
   };
 
-  // =========================================
+  // =========================================================
   // FORM CHANGE
-  // =========================================
+  // =========================================================
 
   const handleChange = (event) => {
-    const { name, value, type, checked } =
-      event.target;
+    const {
+      name,
+      value,
+      type,
+      checked,
+    } = event.target;
 
     setFormData((prev) => ({
       ...prev,
+
       [name]:
         type === "checkbox"
           ? checked
@@ -242,218 +405,428 @@ function SellerCoupons() {
     setFormError("");
   };
 
-  // =========================================
+  // =========================================================
   // VALIDATE FORM
-  // =========================================
+  // =========================================================
 
   const validateForm = () => {
-    const code = formData.code.trim().toUpperCase();
+    const code =
+      formData.code
+        .trim()
+        .toUpperCase();
 
     if (!code) {
-      return "Please enter a coupon code.";
+      return (
+        "Please enter a coupon code."
+      );
     }
 
-    if (!/^[A-Z0-9_-]+$/.test(code)) {
-      return "Coupon code can contain only letters, numbers, hyphens and underscores.";
+    if (
+      !/^[A-Z0-9_-]+$/.test(code)
+    ) {
+      return (
+        "Coupon code can contain only letters, numbers, hyphens and underscores."
+      );
     }
 
-    const duplicateCoupon = coupons.find(
-      (coupon) =>
-        coupon.code.toLowerCase() ===
-          code.toLowerCase() &&
-        coupon.id !== editingCoupon?.id
-    );
+    const duplicateCoupon =
+      coupons.find(
+        (coupon) =>
+          coupon.code
+            .toLowerCase() ===
+            code.toLowerCase() &&
+          coupon.id !==
+            editingCoupon?.id
+      );
 
     if (duplicateCoupon) {
-      return "This coupon code already exists.";
+      return (
+        "This coupon code already exists."
+      );
     }
 
     if (
-      formData.discountValue === "" ||
-      Number(formData.discountValue) <= 0
+      formData.discountValue ===
+        "" ||
+      Number(
+        formData.discountValue
+      ) <= 0
     ) {
-      return "Please enter a valid discount value.";
+      return (
+        "Please enter a valid discount value."
+      );
     }
 
     if (
-      formData.discountType === "percentage" &&
-      Number(formData.discountValue) > 100
+      formData.discountType ===
+        "percentage" &&
+      Number(
+        formData.discountValue
+      ) > 100
     ) {
-      return "Percentage discount cannot be greater than 100%.";
+      return (
+        "Percentage discount cannot be greater than 100%."
+      );
     }
 
     if (
-      formData.minOrder === "" ||
+      formData.minOrder ===
+        "" ||
       Number(formData.minOrder) < 0
     ) {
-      return "Please enter a valid minimum order amount.";
+      return (
+        "Please enter a valid minimum order amount."
+      );
     }
 
     if (
-      formData.discountType === "percentage" &&
-      (formData.maxDiscount === "" ||
-        Number(formData.maxDiscount) <= 0)
+      formData.discountType ===
+        "percentage" &&
+      (
+        formData.maxDiscount ===
+          "" ||
+        Number(
+          formData.maxDiscount
+        ) <= 0
+      )
     ) {
-      return "Please enter the maximum discount.";
+      return (
+        "Please enter the maximum discount."
+      );
     }
 
     if (
-      formData.usageLimit === "" ||
-      Number(formData.usageLimit) <= 0
+      formData.usageLimit ===
+        "" ||
+      Number(
+        formData.usageLimit
+      ) <= 0
     ) {
-      return "Please enter a valid usage limit.";
+      return (
+        "Please enter a valid usage limit."
+      );
     }
 
     if (!formData.startDate) {
-      return "Please select a start date.";
+      return (
+        "Please select a start date."
+      );
     }
 
     if (!formData.expiryDate) {
-      return "Please select an expiry date.";
+      return (
+        "Please select an expiry date."
+      );
     }
 
     if (
-      new Date(formData.expiryDate) <
-      new Date(formData.startDate)
+      new Date(
+        formData.expiryDate
+      ) <
+      new Date(
+        formData.startDate
+      )
     ) {
-      return "Expiry date cannot be before the start date.";
+      return (
+        "Expiry date cannot be before the start date."
+      );
     }
 
     return "";
   };
 
-  // =========================================
-  // SAVE COUPON
-  // =========================================
+  // =========================================================
+  // CREATE / UPDATE COUPON
+  // =========================================================
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
-    const error = validateForm();
+    const error =
+      validateForm();
 
     if (error) {
       setFormError(error);
       return;
     }
 
-    const couponData = {
-      id:
-        editingCoupon?.id ||
-        Date.now(),
+    try {
+      setSaving(true);
+      setFormError("");
 
-      code: formData.code
-        .trim()
-        .toUpperCase(),
+      const token =
+        await getAccessToken();
 
-      discountType:
-        formData.discountType,
+      const couponData = {
+        code:
+          formData.code
+            .trim()
+            .toUpperCase(),
 
-      discountValue:
-        Number(formData.discountValue),
+        discount_type:
+          formData.discountType,
 
-      minOrder:
-        Number(formData.minOrder),
+        discount_value:
+          Number(
+            formData.discountValue
+          ),
 
-      maxDiscount:
-        formData.discountType ===
-        "percentage"
-          ? Number(formData.maxDiscount)
-          : 0,
+        minimum_order_amount:
+          Number(
+            formData.minOrder
+          ),
 
-      usageLimit:
-        Number(formData.usageLimit),
+        maximum_discount:
+          formData.discountType ===
+          "percentage"
+            ? Number(
+                formData.maxDiscount
+              )
+            : null,
 
-      usedCount:
-        editingCoupon?.usedCount || 0,
+        usage_limit:
+          Number(
+            formData.usageLimit
+          ),
 
-      startDate:
-        formData.startDate,
+        starts_at:
+          formData.startDate
+            ? `${formData.startDate}T00:00:00`
+            : null,
 
-      expiryDate:
-        formData.expiryDate,
+        expires_at:
+          formData.expiryDate
+            ? `${formData.expiryDate}T23:59:59`
+            : null,
 
-      active:
-        formData.active,
-    };
+        is_active:
+          formData.active,
+      };
 
-    if (editingCoupon) {
-      setCoupons((prev) =>
-        prev.map((coupon) =>
-          coupon.id === editingCoupon.id
-            ? couponData
-            : coupon
-        )
+      const url =
+        editingCoupon
+          ? `${API_URL}/api/coupons/seller/${editingCoupon.id}`
+          : `${API_URL}/api/coupons/seller`;
+
+      const method =
+        editingCoupon
+          ? "PATCH"
+          : "POST";
+
+      const response =
+        await fetch(url, {
+          method,
+
+          headers: {
+            Authorization:
+              `Bearer ${token}`,
+
+            "Content-Type":
+              "application/json",
+          },
+
+          body:
+            JSON.stringify(
+              couponData
+            ),
+        });
+
+      const result =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.message ||
+            (
+              editingCoupon
+                ? "Unable to update coupon."
+                : "Unable to create coupon."
+            )
+        );
+      }
+
+      closeModal();
+
+      await loadCoupons();
+    } catch (error) {
+      console.error(
+        "Save coupon error:",
+        error
       );
-    } else {
-      setCoupons((prev) => [
-        couponData,
-        ...prev,
-      ]);
-    }
 
-    closeModal();
+      setFormError(
+        error.message ||
+          "Unable to save coupon."
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // =========================================
-  // DELETE COUPON
-  // =========================================
+  // =========================================================
+  // DELETE / DEACTIVATE COUPON
+  // =========================================================
 
-  const handleDelete = (id) => {
-    const coupon = coupons.find(
-      (item) => item.id === id
-    );
+  const handleDelete = async (id) => {
+    const coupon =
+      coupons.find(
+        (item) =>
+          item.id === id
+      );
 
     if (!coupon) {
       return;
     }
 
-    const confirmed = window.confirm(
-      `Delete coupon "${coupon.code}"?`
-    );
+    const confirmed =
+      window.confirm(
+        `Deactivate coupon "${coupon.code}"?`
+      );
 
     if (!confirmed) {
       return;
     }
 
-    setCoupons((prev) =>
-      prev.filter(
-        (item) => item.id !== id
-      )
-    );
+    try {
+      const token =
+        await getAccessToken();
+
+      const response =
+        await fetch(
+          `${API_URL}/api/coupons/seller/${id}`,
+          {
+            method: "DELETE",
+
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+
+              "Content-Type":
+                "application/json",
+            },
+          }
+        );
+
+      const result =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.message ||
+            "Unable to deactivate coupon."
+        );
+      }
+
+      await loadCoupons();
+    } catch (error) {
+      console.error(
+        "Delete coupon error:",
+        error
+      );
+
+      setPageError(
+        error.message ||
+          "Unable to deactivate coupon."
+      );
+    }
   };
 
-  // =========================================
-  // TOGGLE STATUS
-  // =========================================
+  // =========================================================
+  // TOGGLE ACTIVE STATUS
+  // =========================================================
 
-  const toggleCouponStatus = (id) => {
-    setCoupons((prev) =>
-      prev.map((coupon) =>
-        coupon.id === id
-          ? {
-              ...coupon,
-              active: !coupon.active,
+  const toggleCouponStatus =
+    async (coupon) => {
+      const currentStatus =
+        getCouponStatus(
+          coupon
+        );
+
+      // Don't allow an expired or
+      // usage-limit coupon to be
+      // treated as active simply
+      // by clicking the status.
+      if (
+        currentStatus ===
+          "expired" ||
+        currentStatus ===
+          "limit" ||
+        currentStatus ===
+          "scheduled"
+      ) {
+        return;
+      }
+
+      try {
+        const token =
+          await getAccessToken();
+
+        const response =
+          await fetch(
+            `${API_URL}/api/coupons/seller/${coupon.id}`,
+            {
+              method: "PATCH",
+
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+
+                "Content-Type":
+                  "application/json",
+              },
+
+              body: JSON.stringify({
+                is_active:
+                  !coupon.active,
+              }),
             }
-          : coupon
-      )
-    );
-  };
+          );
 
-  // =========================================
+        const result =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            result.message ||
+              "Unable to update coupon status."
+          );
+        }
+
+        await loadCoupons();
+      } catch (error) {
+        console.error(
+          "Toggle coupon error:",
+          error
+        );
+
+        setPageError(
+          error.message ||
+            "Unable to update coupon status."
+        );
+      }
+    };
+
+  // =========================================================
   // FORMAT CURRENCY
-  // =========================================
+  // =========================================================
 
-  const formatCurrency = (value) => {
-    return `₹${Number(value).toLocaleString(
+  const formatCurrency = (
+    value
+  ) => {
+    return `₹${Number(
+      value || 0
+    ).toLocaleString(
       "en-IN"
     )}`;
   };
 
-  // =========================================
+  // =========================================================
   // STATUS LABEL
-  // =========================================
+  // =========================================================
 
-  const getStatusLabel = (status) => {
+  const getStatusLabel = (
+    status
+  ) => {
     switch (status) {
       case "active":
         return "Active";
@@ -475,9 +848,9 @@ function SellerCoupons() {
     }
   };
 
-  // =========================================
+  // =========================================================
   // RENDER
-  // =========================================
+  // =========================================================
 
   return (
     <main className="seller-coupons-page">
@@ -492,7 +865,9 @@ function SellerCoupons() {
               SELLER PANEL
             </span>
 
-            <h1>Coupon Codes</h1>
+            <h1>
+              Coupon Codes
+            </h1>
 
             <p>
               Create and manage discount
@@ -503,13 +878,39 @@ function SellerCoupons() {
           <button
             type="button"
             className="seller-coupon-add-btn"
-            onClick={openAddModal}
+            onClick={
+              openAddModal
+            }
+            disabled={loading}
           >
             <Plus size={19} />
             Add Coupon
           </button>
 
         </section>
+
+
+        {/* PAGE ERROR */}
+
+        {pageError && (
+          <div className="seller-coupon-form-error">
+            <XCircle size={17} />
+
+            <span>
+              {pageError}
+            </span>
+
+            <button
+              type="button"
+              onClick={() =>
+                setPageError("")
+              }
+              aria-label="Close error"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
 
 
         {/* SUMMARY */}
@@ -519,12 +920,19 @@ function SellerCoupons() {
           <div className="coupon-summary-card">
 
             <div className="coupon-summary-icon">
-              <TicketPercent size={21} />
+              <TicketPercent
+                size={21}
+              />
             </div>
 
             <div>
-              <span>Total Coupons</span>
-              <strong>{coupons.length}</strong>
+              <span>
+                Total Coupons
+              </span>
+
+              <strong>
+                {coupons.length}
+              </strong>
             </div>
 
           </div>
@@ -533,18 +941,23 @@ function SellerCoupons() {
           <div className="coupon-summary-card">
 
             <div className="coupon-summary-icon">
-              <CheckCircle size={21} />
+              <CheckCircle
+                size={21}
+              />
             </div>
 
             <div>
-              <span>Active</span>
+              <span>
+                Active
+              </span>
 
               <strong>
                 {
                   coupons.filter(
                     (coupon) =>
-                      getCouponStatus(coupon) ===
-                      "active"
+                      getCouponStatus(
+                        coupon
+                      ) === "active"
                   ).length
                 }
               </strong>
@@ -556,20 +969,27 @@ function SellerCoupons() {
           <div className="coupon-summary-card">
 
             <div className="coupon-summary-icon">
-              <XCircle size={21} />
+              <XCircle
+                size={21}
+              />
             </div>
 
             <div>
-              <span>Expired</span>
+              <span>
+                Expired
+              </span>
 
               <strong>
                 {
                   coupons.filter(
                     (coupon) =>
-                      getCouponStatus(coupon) ===
+                      getCouponStatus(
+                        coupon
+                      ) ===
                         "expired" ||
-                      getCouponStatus(coupon) ===
-                        "limit"
+                      getCouponStatus(
+                        coupon
+                      ) === "limit"
                   ).length
                 }
               </strong>
@@ -591,10 +1011,15 @@ function SellerCoupons() {
             <input
               type="search"
               placeholder="Search coupon code..."
-              value={searchQuery}
-              onChange={(event) =>
+              value={
+                searchQuery
+              }
+              onChange={(
+                event
+              ) =>
                 setSearchQuery(
-                  event.target.value
+                  event.target
+                    .value
                 )
               }
             />
@@ -610,10 +1035,15 @@ function SellerCoupons() {
 
             <select
               id="couponStatus"
-              value={statusFilter}
-              onChange={(event) =>
+              value={
+                statusFilter
+              }
+              onChange={(
+                event
+              ) =>
                 setStatusFilter(
-                  event.target.value
+                  event.target
+                    .value
                 )
               }
             >
@@ -653,27 +1083,50 @@ function SellerCoupons() {
 
               <thead>
                 <tr>
+                  <th>
+                    Coupon
+                  </th>
 
-                  <th>Coupon</th>
+                  <th>
+                    Discount
+                  </th>
 
-                  <th>Discount</th>
+                  <th>
+                    Minimum Order
+                  </th>
 
-                  <th>Minimum Order</th>
+                  <th>
+                    Usage
+                  </th>
 
-                  <th>Usage</th>
+                  <th>
+                    Validity
+                  </th>
 
-                  <th>Validity</th>
+                  <th>
+                    Status
+                  </th>
 
-                  <th>Status</th>
-
-                  <th>Actions</th>
-
+                  <th>
+                    Actions
+                  </th>
                 </tr>
               </thead>
 
               <tbody>
 
-                {filteredCoupons.length === 0 ? (
+                {loading ? (
+                  <tr>
+                    <td
+                      colSpan="7"
+                      className="coupon-empty"
+                    >
+                      <p>
+                        Loading coupons...
+                      </p>
+                    </td>
+                  </tr>
+                ) : filteredCoupons.length === 0 ? (
                   <tr>
 
                     <td
@@ -690,8 +1143,9 @@ function SellerCoupons() {
                       </h3>
 
                       <p>
-                        Try another search or
-                        create a new coupon.
+                        Try another search
+                        or create a new
+                        coupon.
                       </p>
 
                     </td>
@@ -708,7 +1162,9 @@ function SellerCoupons() {
 
                       return (
                         <tr
-                          key={coupon.id}
+                          key={
+                            coupon.id
+                          }
                         >
 
                           {/* CODE */}
@@ -718,14 +1174,18 @@ function SellerCoupons() {
                             <div className="coupon-code-cell">
 
                               <span className="coupon-code">
-                                {coupon.code}
+                                {
+                                  coupon.code
+                                }
                               </span>
 
                               <span className="coupon-code-type">
-                                {coupon.discountType ===
-                                "percentage"
-                                  ? "Percentage discount"
-                                  : "Fixed discount"}
+                                {
+                                  coupon.discountType ===
+                                  "percentage"
+                                    ? "Percentage discount"
+                                    : "Fixed discount"
+                                }
                               </span>
 
                             </div>
@@ -739,26 +1199,32 @@ function SellerCoupons() {
 
                             <strong className="coupon-discount">
 
-                              {coupon.discountType ===
-                              "percentage"
-                                ? `${coupon.discountValue}%`
-                                : formatCurrency(
-                                    coupon.discountValue
-                                  )}
+                              {
+                                coupon.discountType ===
+                                "percentage"
+                                  ? `${coupon.discountValue}%`
+                                  : formatCurrency(
+                                      coupon.discountValue
+                                    )
+                              }
 
                             </strong>
 
-                            {coupon.discountType ===
-                              "percentage" &&
+                            {
+                              coupon.discountType ===
+                                "percentage" &&
                               coupon.maxDiscount >
                                 0 && (
                                 <span className="coupon-max-discount">
                                   Up to{" "}
-                                  {formatCurrency(
-                                    coupon.maxDiscount
-                                  )}
+                                  {
+                                    formatCurrency(
+                                      coupon.maxDiscount
+                                    )
+                                  }
                                 </span>
-                              )}
+                              )
+                            }
 
                           </td>
 
@@ -774,9 +1240,11 @@ function SellerCoupons() {
                               />
 
                               <span>
-                                {formatCurrency(
-                                  coupon.minOrder
-                                )}
+                                {
+                                  formatCurrency(
+                                    coupon.minOrder
+                                  )
+                                }
                               </span>
 
                             </div>
@@ -802,7 +1270,10 @@ function SellerCoupons() {
                                   }
                                   /
                                   {
-                                    coupon.usageLimit
+                                    coupon.usageLimit ===
+                                    null
+                                      ? "∞"
+                                      : coupon.usageLimit
                                   }
                                 </span>
 
@@ -812,12 +1283,15 @@ function SellerCoupons() {
 
                                 <span
                                   style={{
-                                    width: `${Math.min(
-                                      100,
-                                      (coupon.usedCount /
-                                        coupon.usageLimit) *
-                                        100
-                                    )}%`,
+                                    width:
+                                      coupon.usageLimit
+                                        ? `${Math.min(
+                                            100,
+                                            (coupon.usedCount /
+                                              coupon.usageLimit) *
+                                              100
+                                          )}%`
+                                        : "0%",
                                   }}
                                 />
 
@@ -841,7 +1315,8 @@ function SellerCoupons() {
 
                                 <span>
                                   {
-                                    coupon.startDate
+                                    coupon.startDate ||
+                                    "-"
                                   }
                                 </span>
                               </div>
@@ -853,7 +1328,8 @@ function SellerCoupons() {
                               <div>
                                 <span>
                                   {
-                                    coupon.expiryDate
+                                    coupon.expiryDate ||
+                                    "-"
                                   }
                                 </span>
                               </div>
@@ -872,10 +1348,25 @@ function SellerCoupons() {
                               className={`coupon-status coupon-status-${status}`}
                               onClick={() =>
                                 toggleCouponStatus(
-                                  coupon.id
+                                  coupon
                                 )
                               }
-                              title="Click to activate/deactivate"
+                              title={
+                                status ===
+                                  "active" ||
+                                status ===
+                                  "inactive"
+                                  ? "Click to activate/deactivate"
+                                  : "Status cannot be changed while scheduled, expired, or usage limit is reached"
+                              }
+                              disabled={
+                                status ===
+                                  "expired" ||
+                                status ===
+                                  "limit" ||
+                                status ===
+                                  "scheduled"
+                              }
                             >
 
                               {status ===
@@ -913,9 +1404,11 @@ function SellerCoupons() {
                                 />
                               )}
 
-                              {getStatusLabel(
-                                status
-                              )}
+                              {
+                                getStatusLabel(
+                                  status
+                                )
+                              }
 
                             </button>
 
@@ -937,6 +1430,9 @@ function SellerCoupons() {
                                   )
                                 }
                                 aria-label={`Edit ${coupon.code}`}
+                                disabled={
+                                  saving
+                                }
                               >
                                 <Edit
                                   size={17}
@@ -951,7 +1447,10 @@ function SellerCoupons() {
                                     coupon.id
                                   )
                                 }
-                                aria-label={`Delete ${coupon.code}`}
+                                aria-label={`Deactivate ${coupon.code}`}
+                                disabled={
+                                  saving
+                                }
                               >
                                 <Trash2
                                   size={17}
@@ -984,7 +1483,9 @@ function SellerCoupons() {
       {isModalOpen && (
         <div
           className="seller-coupon-modal-overlay"
-          onMouseDown={(event) => {
+          onMouseDown={(
+            event
+          ) => {
             if (
               event.target ===
               event.currentTarget
@@ -1003,15 +1504,19 @@ function SellerCoupons() {
               <div>
 
                 <span className="seller-coupons-eyebrow">
-                  {editingCoupon
-                    ? "UPDATE COUPON"
-                    : "NEW COUPON"}
+                  {
+                    editingCoupon
+                      ? "UPDATE COUPON"
+                      : "NEW COUPON"
+                  }
                 </span>
 
                 <h2>
-                  {editingCoupon
-                    ? "Edit Coupon"
-                    : "Add Coupon"}
+                  {
+                    editingCoupon
+                      ? "Edit Coupon"
+                      : "Add Coupon"
+                  }
                 </h2>
 
               </div>
@@ -1019,8 +1524,13 @@ function SellerCoupons() {
               <button
                 type="button"
                 className="seller-coupon-modal-close"
-                onClick={closeModal}
+                onClick={
+                  closeModal
+                }
                 aria-label="Close"
+                disabled={
+                  saving
+                }
               >
                 <X size={21} />
               </button>
@@ -1032,7 +1542,9 @@ function SellerCoupons() {
 
             <form
               className="seller-coupon-form"
-              onSubmit={handleSubmit}
+              onSubmit={
+                handleSubmit
+              }
             >
 
               {/* COUPON CODE */}
@@ -1047,16 +1559,24 @@ function SellerCoupons() {
                   id="couponCode"
                   name="code"
                   type="text"
-                  value={formData.code}
-                  onChange={handleChange}
+                  value={
+                    formData.code
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="e.g. BEE10"
                   maxLength="30"
                   autoComplete="off"
+                  disabled={
+                    saving
+                  }
                 />
 
                 <small>
-                  Customers will enter this
-                  code during checkout.
+                  Customers will enter
+                  this code during
+                  checkout.
                 </small>
 
               </div>
@@ -1078,7 +1598,12 @@ function SellerCoupons() {
                     value={
                       formData.discountType
                     }
-                    onChange={handleChange}
+                    onChange={
+                      handleChange
+                    }
+                    disabled={
+                      saving
+                    }
                   >
                     <option value="percentage">
                       Percentage
@@ -1101,10 +1626,12 @@ function SellerCoupons() {
                   <div className="seller-input-with-prefix">
 
                     <span>
-                      {formData.discountType ===
-                      "percentage"
-                        ? "%"
-                        : "₹"}
+                      {
+                        formData.discountType ===
+                        "percentage"
+                          ? "%"
+                          : "₹"
+                      }
                     </span>
 
                     <input
@@ -1116,12 +1643,17 @@ function SellerCoupons() {
                       value={
                         formData.discountValue
                       }
-                      onChange={handleChange}
+                      onChange={
+                        handleChange
+                      }
                       placeholder={
                         formData.discountType ===
                         "percentage"
                           ? "10"
                           : "100"
+                      }
+                      disabled={
+                        saving
                       }
                     />
 
@@ -1144,7 +1676,9 @@ function SellerCoupons() {
 
                   <div className="seller-input-with-prefix">
 
-                    <span>₹</span>
+                    <span>
+                      ₹
+                    </span>
 
                     <input
                       id="minOrder"
@@ -1155,8 +1689,13 @@ function SellerCoupons() {
                       value={
                         formData.minOrder
                       }
-                      onChange={handleChange}
+                      onChange={
+                        handleChange
+                      }
                       placeholder="500"
+                      disabled={
+                        saving
+                      }
                     />
 
                   </div>
@@ -1164,37 +1703,44 @@ function SellerCoupons() {
                 </div>
 
 
-                {formData.discountType ===
-                  "percentage" && (
-                  <div className="seller-coupon-form-group">
+                {
+                  formData.discountType ===
+                    "percentage" && (
+                    <div className="seller-coupon-form-group">
 
-                    <label htmlFor="maxDiscount">
-                      Maximum Discount
-                    </label>
+                      <label htmlFor="maxDiscount">
+                        Maximum Discount
+                      </label>
 
-                    <div className="seller-input-with-prefix">
+                      <div className="seller-input-with-prefix">
 
-                      <span>₹</span>
+                        <span>
+                          ₹
+                        </span>
 
-                      <input
-                        id="maxDiscount"
-                        name="maxDiscount"
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={
-                          formData.maxDiscount
-                        }
-                        onChange={
-                          handleChange
-                        }
-                        placeholder="200"
-                      />
+                        <input
+                          id="maxDiscount"
+                          name="maxDiscount"
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={
+                            formData.maxDiscount
+                          }
+                          onChange={
+                            handleChange
+                          }
+                          placeholder="200"
+                          disabled={
+                            saving
+                          }
+                        />
+
+                      </div>
 
                     </div>
-
-                  </div>
-                )}
+                  )
+                }
 
               </div>
 
@@ -1216,8 +1762,13 @@ function SellerCoupons() {
                   value={
                     formData.usageLimit
                   }
-                  onChange={handleChange}
+                  onChange={
+                    handleChange
+                  }
                   placeholder="100"
+                  disabled={
+                    saving
+                  }
                 />
 
                 <small>
@@ -1245,7 +1796,12 @@ function SellerCoupons() {
                     value={
                       formData.startDate
                     }
-                    onChange={handleChange}
+                    onChange={
+                      handleChange
+                    }
+                    disabled={
+                      saving
+                    }
                   />
 
                 </div>
@@ -1264,7 +1820,12 @@ function SellerCoupons() {
                     value={
                       formData.expiryDate
                     }
-                    onChange={handleChange}
+                    onChange={
+                      handleChange
+                    }
+                    disabled={
+                      saving
+                    }
                   />
 
                 </div>
@@ -1279,8 +1840,15 @@ function SellerCoupons() {
                 <input
                   type="checkbox"
                   name="active"
-                  checked={formData.active}
-                  onChange={handleChange}
+                  checked={
+                    formData.active
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  disabled={
+                    saving
+                  }
                 />
 
                 <span className="seller-coupon-toggle-track">
@@ -1294,8 +1862,9 @@ function SellerCoupons() {
                   </strong>
 
                   <small>
-                    Customers can use this
-                    coupon when it is active.
+                    Customers can use
+                    this coupon when
+                    it is active.
                   </small>
 
                 </div>
@@ -1307,11 +1876,15 @@ function SellerCoupons() {
 
               {formError && (
                 <div className="seller-coupon-form-error">
-                  <XCircle size={17} />
+
+                  <XCircle
+                    size={17}
+                  />
 
                   <span>
                     {formError}
                   </span>
+
                 </div>
               )}
 
@@ -1323,7 +1896,12 @@ function SellerCoupons() {
                 <button
                   type="button"
                   className="seller-coupon-cancel-btn"
-                  onClick={closeModal}
+                  onClick={
+                    closeModal
+                  }
+                  disabled={
+                    saving
+                  }
                 >
                   Cancel
                 </button>
@@ -1331,10 +1909,17 @@ function SellerCoupons() {
                 <button
                   type="submit"
                   className="seller-coupon-save-btn"
+                  disabled={
+                    saving
+                  }
                 >
-                  {editingCoupon
-                    ? "Update Coupon"
-                    : "Save Coupon"}
+                  {
+                    saving
+                      ? "Saving..."
+                      : editingCoupon
+                        ? "Update Coupon"
+                        : "Save Coupon"
+                  }
                 </button>
 
               </div>

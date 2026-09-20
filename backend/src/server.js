@@ -29,6 +29,8 @@ import profileRoutes from "./routes/profileRoutes.js";
 import sellerRoutes from "./routes/sellerRoutes.js";
 import sellerProductRoutes from "./routes/sellerProductRoutes.js";
 import sellerOrderRoutes from "./routes/sellerOrderRoutes.js";
+import sellerMessageRoutes from "./routes/sellerMessageRoutes.js";
+import sellerReviewRoutes from "./routes/sellerReviewRoutes.js";
 
 import couponRoutes from "./routes/couponRoutes.js";
 
@@ -272,6 +274,12 @@ app.use(
 app.use(
   "/api/contact",
   contactRoutes
+);
+
+app.use("/api/seller/messages", sellerMessageRoutes);
+app.use(
+  "/api/seller/reviews",
+  sellerReviewRoutes
 );
 
 

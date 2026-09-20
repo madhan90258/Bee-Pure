@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Search,
   Mail,
@@ -9,149 +9,389 @@ import {
   Calendar,
   User,
   MessageSquare,
+  RefreshCw,
 } from "lucide-react";
+
+import { supabase } from "../lib/supabase";
 
 import "../styles/SellerMessages.css";
 
-function SellerMessages() {
-  const [messages, setMessages] = useState(() => {
-    const savedMessages = localStorage.getItem("beePureMessages");
+const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-    if (savedMessages) {
-      return JSON.parse(savedMessages);
-    }
+const SellerMessages = () => {
+  const [messages, setMessages] = useState([]);
 
-    return [];
-  });
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState("all");
+
   const [selectedMessage, setSelectedMessage] = useState(null);
 
-  // =========================================
-  // SAVE MESSAGES
-  // =========================================
+  /*
+  |--------------------------------------------------------------------------
+  | Get authenticated session
+  |--------------------------------------------------------------------------
+  */
 
-  const saveMessages = (updatedMessages) => {
-    setMessages(updatedMessages);
+  const getSession = async () => {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
 
-    localStorage.setItem(
-      "beePureMessages",
-      JSON.stringify(updatedMessages)
-    );
+    if (sessionError) {
+      throw new Error(sessionError.message);
+    }
+
+    if (!session?.access_token) {
+      throw new Error("Authentication required");
+    }
+
+    return session;
   };
 
-  // =========================================
-  // FILTER + SEARCH
-  // =========================================
+  /*
+  |--------------------------------------------------------------------------
+  | Load messages
+  |--------------------------------------------------------------------------
+  */
 
-  const filteredMessages = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+  const loadMessages = async (showRefresh = false) => {
+    try {
+      if (showRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
 
-    return messages.filter((message) => {
-      const matchesSearch =
-        !query ||
-        message.name?.toLowerCase().includes(query) ||
-        message.email?.toLowerCase().includes(query) ||
-        message.phone?.toLowerCase().includes(query) ||
-        message.subject?.toLowerCase().includes(query) ||
-        message.message?.toLowerCase().includes(query);
+      setError("");
 
-      const matchesFilter =
-        filter === "all" ||
-        (filter === "unread" && !message.read) ||
-        (filter === "read" && message.read);
+      const session = await getSession();
 
-      return matchesSearch && matchesFilter;
-    });
-  }, [messages, searchQuery, filter]);
+      const response = await fetch(
+        `${API_URL}/api/seller/messages`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-  // =========================================
-  // MARK READ / UNREAD
-  // =========================================
+      const data = await response.json();
 
-  const toggleRead = (id) => {
-    const updatedMessages = messages.map((message) =>
-      message.id === id
-        ? {
-            ...message,
-            read: !message.read,
-          }
-        : message
-    );
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Failed to load messages"
+        );
+      }
 
-    saveMessages(updatedMessages);
+      setMessages(data.messages || []);
+    } catch (err) {
+      console.error("Load messages error:", err);
 
-    if (selectedMessage?.id === id) {
-      setSelectedMessage({
-        ...selectedMessage,
-        read: !selectedMessage.read,
-      });
+      setError(
+        err.message || "Failed to load messages"
+      );
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  // =========================================
-  // OPEN MESSAGE
-  // =========================================
+  /*
+  |--------------------------------------------------------------------------
+  | Initial load
+  |--------------------------------------------------------------------------
+  */
 
-  const openMessage = (message) => {
-    const updatedMessages = messages.map((item) =>
-      item.id === message.id
-        ? {
-            ...item,
-            read: true,
-          }
-        : item
-    );
+  useEffect(() => {
+    loadMessages();
+  }, []);
 
-    saveMessages(updatedMessages);
+  /*
+  |--------------------------------------------------------------------------
+  | Clear notifications
+  |--------------------------------------------------------------------------
+  */
 
-    setSelectedMessage({
-      ...message,
-      read: true,
-    });
+  useEffect(() => {
+    if (!success) return;
+
+    const timer = setTimeout(() => {
+      setSuccess("");
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [success]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Update message status
+  |--------------------------------------------------------------------------
+  */
+
+  const updateMessageStatus = async (messageId, status) => {
+    try {
+      setError("");
+
+      const session = await getSession();
+
+      const response = await fetch(
+        `${API_URL}/api/seller/messages/${messageId}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            status,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Failed to update message"
+        );
+      }
+
+      const updatedMessage = data.message;
+
+      setMessages((previousMessages) =>
+        previousMessages.map((message) =>
+          message.id === messageId
+            ? updatedMessage
+            : message
+        )
+      );
+
+      setSelectedMessage((current) => {
+        if (!current || current.id !== messageId) {
+          return current;
+        }
+
+        return updatedMessage;
+      });
+
+      setSuccess("Message status updated");
+    } catch (err) {
+      console.error("Update message status error:", err);
+
+      setError(
+        err.message || "Failed to update message status"
+      );
+    }
   };
 
-  // =========================================
-  // DELETE MESSAGE
-  // =========================================
+  /*
+  |--------------------------------------------------------------------------
+  | Mark as read
+  |--------------------------------------------------------------------------
+  */
 
-  const deleteMessage = (id) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this message?"
-    );
-
-    if (!confirmed) {
+  const markAsRead = async (message) => {
+    if (!message || message.status !== "new") {
       return;
     }
 
-    const updatedMessages = messages.filter(
-      (message) => message.id !== id
-    );
+    await updateMessageStatus(message.id, "read");
+  };
 
-    saveMessages(updatedMessages);
+  /*
+  |--------------------------------------------------------------------------
+  | Mark as unread
+  |--------------------------------------------------------------------------
+  */
 
-    if (selectedMessage?.id === id) {
-      setSelectedMessage(null);
+  const markAsUnread = async (message) => {
+    if (!message) {
+      return;
+    }
+
+    await updateMessageStatus(message.id, "new");
+  };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Open message
+  |--------------------------------------------------------------------------
+  */
+
+  const openMessage = async (message) => {
+    setSelectedMessage(message);
+
+    if (message.status === "new") {
+      await markAsRead(message);
     }
   };
 
-  // =========================================
-  // FORMAT DATE
-  // =========================================
+  /*
+  |--------------------------------------------------------------------------
+  | Close message modal
+  |--------------------------------------------------------------------------
+  */
 
-  const formatDate = (date) => {
-    if (!date) {
-      return "—";
+  const closeMessage = () => {
+    setSelectedMessage(null);
+  };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Delete message
+  |--------------------------------------------------------------------------
+  */
+
+  const deleteMessage = async (messageId) => {
+    const shouldDelete = window.confirm(
+      "Are you sure you want to delete this message?"
+    );
+
+    if (!shouldDelete) {
+      return;
     }
 
-    const parsedDate = new Date(date);
+    try {
+      setError("");
 
-    if (Number.isNaN(parsedDate.getTime())) {
-      return date;
+      const session = await getSession();
+
+      const response = await fetch(
+        `${API_URL}/api/seller/messages/${messageId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Failed to delete message"
+        );
+      }
+
+      setMessages((previousMessages) =>
+        previousMessages.filter(
+          (message) => message.id !== messageId
+        )
+      );
+
+      setSelectedMessage((current) => {
+        if (current?.id === messageId) {
+          return null;
+        }
+
+        return current;
+      });
+
+      setSuccess("Message deleted successfully");
+    } catch (err) {
+      console.error("Delete message error:", err);
+
+      setError(
+        err.message || "Failed to delete message"
+      );
+    }
+  };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Search + filter
+  |--------------------------------------------------------------------------
+  */
+
+  const filteredMessages = useMemo(() => {
+    const normalizedSearch = searchTerm
+      .trim()
+      .toLowerCase();
+
+    return messages.filter((message) => {
+      /*
+      |--------------------------------------------------------------------------
+      | Filter
+      |--------------------------------------------------------------------------
+      */
+
+      if (filter === "unread" && message.status !== "new") {
+        return false;
+      }
+
+      if (filter === "read" && message.status === "new") {
+        return false;
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Search
+      |--------------------------------------------------------------------------
+      */
+
+      if (!normalizedSearch) {
+        return true;
+      }
+
+      const searchableText = [
+        message.name,
+        message.email,
+        message.phone,
+        message.subject,
+        message.message,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return searchableText.includes(normalizedSearch);
+    });
+  }, [messages, searchTerm, filter]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Counts
+  |--------------------------------------------------------------------------
+  */
+
+  const totalMessages = messages.length;
+
+  const unreadMessages = messages.filter(
+    (message) => message.status === "new"
+  ).length;
+
+  const readMessages = totalMessages - unreadMessages;
+
+  /*
+  |--------------------------------------------------------------------------
+  | Date formatter
+  |--------------------------------------------------------------------------
+  */
+
+  const formatDate = (dateString) => {
+    if (!dateString) {
+      return "-";
     }
 
-    return parsedDate.toLocaleString("en-IN", {
+    const date = new Date(dateString);
+
+    if (Number.isNaN(date.getTime())) {
+      return "-";
+    }
+
+    return date.toLocaleString("en-IN", {
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -160,458 +400,516 @@ function SellerMessages() {
     });
   };
 
-  // =========================================
-  // COUNTS
-  // =========================================
+  /*
+  |--------------------------------------------------------------------------
+  | Status label
+  |--------------------------------------------------------------------------
+  */
 
-  const unreadCount = messages.filter(
-    (message) => !message.read
-  ).length;
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case "new":
+        return "Unread";
 
-  const readCount = messages.filter(
-    (message) => message.read
-  ).length;
+      case "read":
+        return "Read";
+
+      case "replied":
+        return "Replied";
+
+      case "closed":
+        return "Closed";
+
+      default:
+        return status || "Unknown";
+    }
+  };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Status class
+  |--------------------------------------------------------------------------
+  */
+
+  const getStatusClass = (status) => {
+    switch (status) {
+      case "new":
+        return "unread";
+
+      case "read":
+        return "read";
+
+      case "replied":
+        return "replied";
+
+      case "closed":
+        return "closed";
+
+      default:
+        return "";
+    }
+  };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Loading state
+  |--------------------------------------------------------------------------
+  */
+
+  if (loading) {
+    return (
+      <div className="seller-messages-page">
+        <div className="seller-messages-loading">
+          <RefreshCw
+            size={28}
+            className="seller-messages-spinner"
+          />
+
+          <p>Loading messages...</p>
+        </div>
+      </div>
+    );
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Render
+  |--------------------------------------------------------------------------
+  */
 
   return (
-    <main className="seller-messages-page">
+    <div className="seller-messages-page">
       <div className="seller-messages-container">
-
-        {/* =====================================
-            HEADER
-        ===================================== */}
-
+        {/* Header */}
         <div className="seller-messages-header">
-
           <div>
-            <span className="seller-section-label">
-              SELLER PANEL
-            </span>
-
             <h1>Messages</h1>
 
             <p>
-              View and manage messages received from
-              Bee Pure customers.
+              Manage messages received from your
+              customers.
             </p>
           </div>
 
-          <div className="seller-message-summary">
-
-            <div className="message-summary-card">
-              <Mail size={19} />
-
-              <div>
-                <strong>{messages.length}</strong>
-                <span>Total</span>
-              </div>
-            </div>
-
-            <div className="message-summary-card unread">
-              <MailOpen size={19} />
-
-              <div>
-                <strong>{unreadCount}</strong>
-                <span>Unread</span>
-              </div>
-            </div>
-
-            <div className="message-summary-card">
-              <MailOpen size={19} />
-
-              <div>
-                <strong>{readCount}</strong>
-                <span>Read</span>
-              </div>
-            </div>
-
-          </div>
-
-        </div>
-
-
-        {/* =====================================
-            TOOLBAR
-        ===================================== */}
-
-        <div className="seller-messages-toolbar">
-
-          <div className="seller-message-search">
-
-            <Search size={18} />
-
-            <input
-              type="search"
-              placeholder="Search messages..."
-              value={searchQuery}
-              onChange={(event) =>
-                setSearchQuery(event.target.value)
+          <button
+            type="button"
+            className="seller-messages-refresh-btn"
+            onClick={() => loadMessages(true)}
+            disabled={refreshing}
+          >
+            <RefreshCw
+              size={17}
+              className={
+                refreshing
+                  ? "seller-messages-spinner"
+                  : ""
               }
             />
 
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="seller-messages-alert seller-messages-error">
+            {error}
+          </div>
+        )}
+
+        {/* Success */}
+        {success && (
+          <div className="seller-messages-alert seller-messages-success">
+            {success}
+          </div>
+        )}
+
+        {/* Statistics */}
+        <div className="seller-messages-stats">
+          <div className="seller-message-stat-card">
+            <div className="seller-message-stat-icon">
+              <MessageSquare size={20} />
+            </div>
+
+            <div>
+              <span>Total Messages</span>
+              <strong>{totalMessages}</strong>
+            </div>
           </div>
 
+          <div className="seller-message-stat-card">
+            <div className="seller-message-stat-icon">
+              <Mail size={20} />
+            </div>
 
-          <div className="seller-message-filters">
+            <div>
+              <span>Unread</span>
+              <strong>{unreadMessages}</strong>
+            </div>
+          </div>
 
+          <div className="seller-message-stat-card">
+            <div className="seller-message-stat-icon">
+              <MailOpen size={20} />
+            </div>
+
+            <div>
+              <span>Read</span>
+              <strong>{readMessages}</strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="seller-messages-controls">
+          <div className="seller-messages-search">
+            <Search size={18} />
+
+            <input
+              type="text"
+              placeholder="Search messages..."
+              value={searchTerm}
+              onChange={(event) =>
+                setSearchTerm(event.target.value)
+              }
+            />
+          </div>
+
+          <div className="seller-messages-filters">
             <button
               type="button"
               className={
-                filter === "all"
-                  ? "active"
-                  : ""
+                filter === "all" ? "active" : ""
               }
               onClick={() => setFilter("all")}
             >
               All
+              <span>{totalMessages}</span>
             </button>
 
             <button
               type="button"
               className={
-                filter === "unread"
-                  ? "active"
-                  : ""
+                filter === "unread" ? "active" : ""
               }
               onClick={() => setFilter("unread")}
             >
               Unread
+              <span>{unreadMessages}</span>
             </button>
 
             <button
               type="button"
               className={
-                filter === "read"
-                  ? "active"
-                  : ""
+                filter === "read" ? "active" : ""
               }
               onClick={() => setFilter("read")}
             >
               Read
+              <span>{readMessages}</span>
             </button>
-
           </div>
-
         </div>
 
-
-        {/* =====================================
-            MESSAGE LIST
-        ===================================== */}
-
-        <section className="seller-messages-list">
-
+        {/* Messages */}
+        <div className="seller-messages-list">
           {filteredMessages.length === 0 ? (
-
             <div className="seller-messages-empty">
+              <MessageSquare size={42} />
 
-              <div className="seller-empty-icon">
-                <MessageSquare size={28} />
-              </div>
-
-              <h2>
+              <h3>
                 {messages.length === 0
                   ? "No messages yet"
                   : "No messages found"}
-              </h2>
+              </h3>
 
               <p>
                 {messages.length === 0
-                  ? "Messages submitted through the Contact page will appear here."
+                  ? "Customer messages will appear here."
                   : "Try changing your search or filter."}
               </p>
-
             </div>
-
           ) : (
-
             filteredMessages.map((message) => (
-
-              <article
+              <div
                 key={message.id}
                 className={`seller-message-card ${
-                  message.read
-                    ? "read"
-                    : "unread"
+                  message.status === "new"
+                    ? "seller-message-unread"
+                    : ""
                 }`}
-                onClick={() =>
-                  openMessage(message)
-                }
               >
+                <button
+                  type="button"
+                  className="seller-message-main"
+                  onClick={() => openMessage(message)}
+                >
+                  <div className="seller-message-avatar">
+                    {message.name
+                      ? message.name
+                          .charAt(0)
+                          .toUpperCase()
+                      : "?"}
+                  </div>
 
-                <div className="seller-message-icon">
+                  <div className="seller-message-content">
+                    <div className="seller-message-top">
+                      <div>
+                        <h3>
+                          {message.name || "Unknown"}
+                        </h3>
 
-                  {message.read ? (
-                    <MailOpen size={20} />
-                  ) : (
-                    <Mail size={20} />
-                  )}
-
-                </div>
-
-
-                <div className="seller-message-content">
-
-                  <div className="seller-message-top">
-
-                    <div className="seller-message-sender">
-
-                      <h3>
-                        {message.name ||
-                          "Unknown Customer"}
-                      </h3>
-
-                      {!message.read && (
-                        <span className="unread-badge">
-                          New
+                        <span>
+                          {message.email || "-"}
                         </span>
-                      )}
+                      </div>
 
+                      <time>
+                        {formatDate(
+                          message.created_at
+                        )}
+                      </time>
                     </div>
 
-                    <span className="seller-message-date">
-                      {formatDate(message.date)}
-                    </span>
+                    <div className="seller-message-subject">
+                      {message.subject ||
+                        "No subject"}
+                    </div>
 
-                  </div>
+                    <p>
+                      {message.message || ""}
+                    </p>
 
-
-                  <h4>
-                    {message.subject ||
-                      "Customer Message"}
-                  </h4>
-
-                  <p>
-                    {message.message}
-                  </p>
-
-
-                  <div className="seller-message-contact">
-
-                    {message.email && (
-                      <span>
-                        {message.email}
+                    <div className="seller-message-bottom">
+                      <span
+                        className={`seller-message-status ${getStatusClass(
+                          message.status
+                        )}`}
+                      >
+                        {getStatusLabel(
+                          message.status
+                        )}
                       </span>
-                    )}
 
-                    {message.phone && (
-                      <span>
-                        {message.phone}
-                      </span>
-                    )}
-
+                      {message.phone && (
+                        <span className="seller-message-phone">
+                          <Phone size={14} />
+                          {message.phone}
+                        </span>
+                      )}
+                    </div>
                   </div>
+                </button>
 
-                </div>
-
-
-                <div
-                  className="seller-message-actions"
-                  onClick={(event) =>
-                    event.stopPropagation()
-                  }
-                >
-
-                  <button
-                    type="button"
-                    title={
-                      message.read
-                        ? "Mark as unread"
-                        : "Mark as read"
-                    }
-                    onClick={() =>
-                      toggleRead(message.id)
-                    }
-                  >
-                    {message.read ? (
-                      <Mail size={17} />
-                    ) : (
+                <div className="seller-message-actions">
+                  {message.status === "new" ? (
+                    <button
+                      type="button"
+                      title="Mark as read"
+                      onClick={() =>
+                        markAsRead(message)
+                      }
+                    >
                       <MailOpen size={17} />
-                    )}
-                  </button>
-
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      title="Mark as unread"
+                      onClick={() =>
+                        markAsUnread(message)
+                      }
+                    >
+                      <Mail size={17} />
+                    </button>
+                  )}
 
                   <button
                     type="button"
-                    className="delete"
                     title="Delete message"
+                    className="delete"
                     onClick={() =>
                       deleteMessage(message.id)
                     }
                   >
                     <Trash2 size={17} />
                   </button>
-
                 </div>
-
-              </article>
-
+              </div>
             ))
-
           )}
-
-        </section>
-
+        </div>
       </div>
 
-
-      {/* =====================================
-          MESSAGE MODAL
-      ===================================== */}
-
+      {/* Message Modal */}
       {selectedMessage && (
-
         <div
           className="seller-message-modal-overlay"
-          onClick={() =>
-            setSelectedMessage(null)
-          }
+          onClick={closeMessage}
         >
-
           <div
             className="seller-message-modal"
             onClick={(event) =>
               event.stopPropagation()
             }
           >
-
             <div className="seller-message-modal-header">
-
               <div>
-                <span>
-                  CUSTOMER MESSAGE
-                </span>
-
                 <h2>
                   {selectedMessage.subject ||
                     "Customer Message"}
                 </h2>
+
+                <span>
+                  {formatDate(
+                    selectedMessage.created_at
+                  )}
+                </span>
               </div>
 
               <button
                 type="button"
-                onClick={() =>
-                  setSelectedMessage(null)
-                }
-                aria-label="Close message"
+                onClick={closeMessage}
+                className="seller-message-modal-close"
               >
                 <X size={20} />
               </button>
-
             </div>
 
-
             <div className="seller-message-modal-body">
-
-              <div className="message-detail-row">
-
-                <User size={18} />
+              {/* Customer */}
+              <div className="seller-message-customer">
+                <div className="seller-message-customer-avatar">
+                  {selectedMessage.name
+                    ? selectedMessage.name
+                        .charAt(0)
+                        .toUpperCase()
+                    : "?"}
+                </div>
 
                 <div>
-                  <small>Name</small>
-                  <strong>
+                  <h3>
                     {selectedMessage.name ||
-                      "—"}
-                  </strong>
-                </div>
+                      "Unknown"}
+                  </h3>
 
+                  <p>
+                    {selectedMessage.email || "-"}
+                  </p>
+                </div>
               </div>
 
+              {/* Contact details */}
+              <div className="seller-message-details">
+                <div>
+                  <User size={16} />
 
-              <div className="message-detail-row">
-
-                <Mail size={18} />
+                  <span>
+                    {selectedMessage.name ||
+                      "-"}
+                  </span>
+                </div>
 
                 <div>
-                  <small>Email</small>
-                  <strong>
+                  <Mail size={16} />
+
+                  <span>
                     {selectedMessage.email ||
-                      "—"}
-                  </strong>
+                      "-"}
+                  </span>
                 </div>
 
-              </div>
+                {selectedMessage.phone && (
+                  <div>
+                    <Phone size={16} />
 
-
-              <div className="message-detail-row">
-
-                <Phone size={18} />
-
-                <div>
-                  <small>Phone</small>
-                  <strong>
-                    {selectedMessage.phone ||
-                      "—"}
-                  </strong>
-                </div>
-
-              </div>
-
-
-              <div className="message-detail-row">
-
-                <Calendar size={18} />
+                    <span>
+                      {selectedMessage.phone}
+                    </span>
+                  </div>
+                )}
 
                 <div>
-                  <small>Date</small>
-                  <strong>
+                  <Calendar size={16} />
+
+                  <span>
                     {formatDate(
-                      selectedMessage.date
+                      selectedMessage.created_at
                     )}
-                  </strong>
+                  </span>
                 </div>
-
               </div>
 
-
-              <div className="message-full-content">
-
-                <span>Message</span>
+              {/* Message */}
+              <div className="seller-message-full">
+                <h3>Message</h3>
 
                 <p>
                   {selectedMessage.message ||
                     "No message content."}
                 </p>
-
               </div>
 
+              {/* Status */}
+              <div className="seller-message-modal-status">
+                <span>Status</span>
+
+                <span
+                  className={`seller-message-status ${getStatusClass(
+                    selectedMessage.status
+                  )}`}
+                >
+                  {getStatusLabel(
+                    selectedMessage.status
+                  )}
+                </span>
+              </div>
+
+              {/* Actions */}
+              <div className="seller-message-modal-actions">
+                {selectedMessage.status === "new" ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      markAsRead(selectedMessage)
+                    }
+                  >
+                    <MailOpen size={17} />
+                    Mark as read
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      markAsUnread(
+                        selectedMessage
+                      )
+                    }
+                  >
+                    <Mail size={17} />
+                    Mark as unread
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className="delete"
+                  onClick={() =>
+                    deleteMessage(
+                      selectedMessage.id
+                    )
+                  }
+                >
+                  <Trash2 size={17} />
+                  Delete
+                </button>
+              </div>
             </div>
-
-
-            <div className="seller-message-modal-footer">
-
-              <button
-                type="button"
-                className="message-delete-btn"
-                onClick={() =>
-                  deleteMessage(
-                    selectedMessage.id
-                  )
-                }
-              >
-                <Trash2 size={17} />
-                Delete
-              </button>
-
-              <button
-                type="button"
-                className="message-close-btn"
-                onClick={() =>
-                  setSelectedMessage(null)
-                }
-              >
-                Close
-              </button>
-
-            </div>
-
           </div>
-
         </div>
-
       )}
-
-    </main>
+    </div>
   );
-}
+};
 
 export default SellerMessages;

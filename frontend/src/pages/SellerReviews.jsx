@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
 import {
   Star,
   Trash2,
@@ -6,167 +7,562 @@ import {
   EyeOff,
   Search,
   X,
+  RefreshCw,
 } from "lucide-react";
+
+import { supabase } from "../lib/supabase";
 
 import "../styles/SellerReviews.css";
 
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
+
 function SellerReviews() {
-  const [reviews, setReviews] = useState([
-    {
-      id: 1,
-      product: "Pure Forest Honey",
-      customer: "Arun Kumar",
-      email: "arun@example.com",
-      rating: 5,
-      review:
-        "The honey tastes very natural and fresh. Really happy with the quality.",
-      date: "08 Sep 2026",
-      visible: true,
-    },
-    {
-      id: 2,
-      product: "Raw Organic Honey",
-      customer: "Priya S",
-      email: "priya@example.com",
-      rating: 4,
-      review:
-        "Good quality honey and nicely packed. Delivery was also quick.",
-      date: "07 Sep 2026",
-      visible: true,
-    },
-    {
-      id: 3,
-      product: "Organic Turmeric",
-      customer: "Rahul M",
-      email: "rahul@example.com",
-      rating: 5,
-      review:
-        "Very good turmeric. The colour and aroma are excellent.",
-      date: "06 Sep 2026",
-      visible: true,
-    },
-    {
-      id: 4,
-      product: "Organic A2 Ghee",
-      customer: "Meena R",
-      email: "meena@example.com",
-      rating: 3,
-      review:
-        "The product is good but I expected faster delivery.",
-      date: "05 Sep 2026",
-      visible: false,
-    },
-  ]);
+  const [reviews, setReviews] = useState([]);
 
-  const [search, setSearch] = useState("");
-  const [selectedReview, setSelectedReview] = useState(null);
+  const [loading, setLoading] =
+    useState(true);
 
-  // =========================================
-  // DELETE REVIEW
-  // =========================================
+  const [refreshing, setRefreshing] =
+    useState(false);
 
-  const handleDelete = (id) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this review?"
-    );
+  const [error, setError] =
+    useState("");
 
-    if (!confirmed) return;
+  const [success, setSuccess] =
+    useState("");
 
-    setReviews((prev) =>
-      prev.filter((review) => review.id !== id)
-    );
+  const [search, setSearch] =
+    useState("");
 
-    if (selectedReview?.id === id) {
-      setSelectedReview(null);
+  const [selectedReview, setSelectedReview] =
+    useState(null);
+
+  const [stats, setStats] =
+    useState({
+      total_reviews: 0,
+      visible_reviews: 0,
+      average_rating: 0,
+    });
+
+  /*
+  |--------------------------------------------------------------------------
+  | GET SESSION
+  |--------------------------------------------------------------------------
+  */
+
+  const getSession = async () => {
+    const {
+      data: {
+        session,
+      },
+      error: sessionError,
+    } =
+      await supabase.auth.getSession();
+
+    if (sessionError) {
+      throw new Error(
+        sessionError.message
+      );
+    }
+
+    if (
+      !session?.access_token
+    ) {
+      throw new Error(
+        "Authentication required"
+      );
+    }
+
+    return session;
+  };
+
+  /*
+  |--------------------------------------------------------------------------
+  | LOAD REVIEWS
+  |--------------------------------------------------------------------------
+  */
+
+  const loadReviews = async (
+    showRefresh = false
+  ) => {
+    try {
+      if (showRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      setError("");
+
+      const session =
+        await getSession();
+
+      const response =
+        await fetch(
+          `${API_URL}/api/seller/reviews`,
+          {
+            method: "GET",
+
+            headers: {
+              Authorization:
+                `Bearer ${session.access_token}`,
+
+              "Content-Type":
+                "application/json",
+            },
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Failed to load reviews"
+        );
+      }
+
+      setReviews(
+        data.reviews || []
+      );
+
+      setStats(
+        data.stats || {
+          total_reviews: 0,
+          visible_reviews: 0,
+          average_rating: 0,
+        }
+      );
+    } catch (err) {
+      console.error(
+        "Load reviews error:",
+        err
+      );
+
+      setError(
+        err.message ||
+          "Failed to load reviews"
+      );
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  // =========================================
-  // SHOW / HIDE REVIEW
-  // =========================================
+  /*
+  |--------------------------------------------------------------------------
+  | INITIAL LOAD
+  |--------------------------------------------------------------------------
+  */
 
-  const handleToggleVisibility = (id) => {
-    setReviews((prev) =>
-      prev.map((review) =>
-        review.id === id
-          ? {
-              ...review,
-              visible: !review.visible,
+  useEffect(() => {
+    loadReviews();
+  }, []);
+
+  /*
+  |--------------------------------------------------------------------------
+  | SUCCESS MESSAGE
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    if (!success) {
+      return;
+    }
+
+    const timer =
+      setTimeout(() => {
+        setSuccess("");
+      }, 3000);
+
+    return () =>
+      clearTimeout(timer);
+  }, [success]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | UPDATE VISIBILITY
+  |--------------------------------------------------------------------------
+  */
+
+  const handleToggleVisibility =
+    async (review) => {
+      try {
+        setError("");
+
+        const session =
+          await getSession();
+
+        const response =
+          await fetch(
+            `${API_URL}/api/seller/reviews/${review.id}/visibility`,
+            {
+              method: "PATCH",
+
+              headers: {
+                Authorization:
+                  `Bearer ${session.access_token}`,
+
+                "Content-Type":
+                  "application/json",
+              },
+
+              body: JSON.stringify({
+                is_approved:
+                  !review.visible,
+              }),
             }
-          : review
-      )
-    );
+          );
 
-    if (selectedReview?.id === id) {
-      setSelectedReview((prev) => ({
-        ...prev,
-        visible: !prev.visible,
-      }));
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              "Failed to update review"
+          );
+        }
+
+        const updatedReview =
+          data.review;
+
+        setReviews(
+          (previousReviews) =>
+            previousReviews.map(
+              (item) =>
+                item.id ===
+                review.id
+                  ? updatedReview
+                  : item
+            )
+        );
+
+        setSelectedReview(
+          (current) => {
+            if (
+              !current ||
+              current.id !==
+                review.id
+            ) {
+              return current;
+            }
+
+            return updatedReview;
+          }
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Update statistics locally
+        |--------------------------------------------------------------------------
+        */
+
+        setStats(
+          (previousStats) => ({
+            ...previousStats,
+
+            visible_reviews:
+              updatedReview.visible
+                ? previousStats.visible_reviews +
+                  1
+                : Math.max(
+                    previousStats.visible_reviews -
+                      1,
+                    0
+                  ),
+          })
+        );
+
+        setSuccess(
+          updatedReview.visible
+            ? "Review is now visible"
+            : "Review has been hidden"
+        );
+      } catch (err) {
+        console.error(
+          "Update review error:",
+          err
+        );
+
+        setError(
+          err.message ||
+            "Failed to update review"
+        );
+      }
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | DELETE REVIEW
+  |--------------------------------------------------------------------------
+  */
+
+  const handleDelete =
+    async (reviewId) => {
+      const confirmed =
+        window.confirm(
+          "Are you sure you want to permanently delete this review?"
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        setError("");
+
+        const session =
+          await getSession();
+
+        const response =
+          await fetch(
+            `${API_URL}/api/seller/reviews/${reviewId}`,
+            {
+              method: "DELETE",
+
+              headers: {
+                Authorization:
+                  `Bearer ${session.access_token}`,
+
+                "Content-Type":
+                  "application/json",
+              },
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              "Failed to delete review"
+          );
+        }
+
+        setReviews(
+          (previousReviews) =>
+            previousReviews.filter(
+              (review) =>
+                review.id !==
+                reviewId
+            )
+        );
+
+        if (
+          selectedReview?.id ===
+          reviewId
+        ) {
+          setSelectedReview(
+            null
+          );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Recalculate statistics
+        |--------------------------------------------------------------------------
+        */
+
+        setStats(
+          (previousStats) => {
+            const deletedReview =
+              reviews.find(
+                (review) =>
+                  review.id ===
+                  reviewId
+              );
+
+            const newTotal =
+              Math.max(
+                previousStats.total_reviews -
+                  1,
+                0
+              );
+
+            const newVisible =
+              deletedReview?.visible
+                ? Math.max(
+                    previousStats.visible_reviews -
+                      1,
+                    0
+                  )
+                : previousStats.visible_reviews;
+
+            return {
+              ...previousStats,
+              total_reviews:
+                newTotal,
+              visible_reviews:
+                newVisible,
+            };
+          }
+        );
+
+        setSuccess(
+          "Review deleted successfully"
+        );
+      } catch (err) {
+        console.error(
+          "Delete review error:",
+          err
+        );
+
+        setError(
+          err.message ||
+            "Failed to delete review"
+        );
+      }
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | SEARCH
+  |--------------------------------------------------------------------------
+  */
+
+  const filteredReviews =
+    useMemo(() => {
+      const query =
+        search
+          .toLowerCase()
+          .trim();
+
+      if (!query) {
+        return reviews;
+      }
+
+      return reviews.filter(
+        (review) =>
+          String(
+            review.product || ""
+          )
+            .toLowerCase()
+            .includes(query) ||
+          String(
+            review.customer || ""
+          )
+            .toLowerCase()
+            .includes(query) ||
+          String(
+            review.email || ""
+          )
+            .toLowerCase()
+            .includes(query) ||
+          String(
+            review.review || ""
+          )
+            .toLowerCase()
+            .includes(query)
+      );
+    }, [
+      reviews,
+      search,
+    ]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | DATE
+  |--------------------------------------------------------------------------
+  */
+
+  const formatDate = (
+    dateString
+  ) => {
+    if (!dateString) {
+      return "-";
     }
+
+    const date =
+      new Date(dateString);
+
+    if (
+      Number.isNaN(
+        date.getTime()
+      )
+    ) {
+      return "-";
+    }
+
+    return date.toLocaleDateString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }
+    );
   };
 
-  // =========================================
-  // FILTER
-  // =========================================
+  /*
+  |--------------------------------------------------------------------------
+  | STARS
+  |--------------------------------------------------------------------------
+  */
 
-  const filteredReviews = reviews.filter((review) => {
-    const query = search.toLowerCase().trim();
-
-    if (!query) return true;
-
-    return (
-      review.product.toLowerCase().includes(query) ||
-      review.customer.toLowerCase().includes(query) ||
-      review.email.toLowerCase().includes(query) ||
-      review.review.toLowerCase().includes(query)
-    );
-  });
-
-  // =========================================
-  // STATS
-  // =========================================
-
-  const totalReviews = reviews.length;
-
-  const visibleReviews = reviews.filter(
-    (review) => review.visible
-  ).length;
-
-  const averageRating =
-    reviews.length > 0
-      ? (
-          reviews.reduce(
-            (total, review) => total + review.rating,
-            0
-          ) / reviews.length
-        ).toFixed(1)
-      : "0.0";
-
-  const renderStars = (rating) => {
+  const renderStars = (
+    rating
+  ) => {
     return (
       <div className="seller-review-stars">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Star
-            key={star}
-            size={15}
-            fill={
-              star <= rating
-                ? "currentColor"
-                : "none"
-            }
-          />
-        ))}
+        {[1, 2, 3, 4, 5].map(
+          (star) => (
+            <Star
+              key={star}
+              size={15}
+              fill={
+                star <=
+                Number(rating)
+                  ? "currentColor"
+                  : "none"
+              }
+            />
+          )
+        )}
       </div>
     );
   };
+
+  /*
+  |--------------------------------------------------------------------------
+  | LOADING
+  |--------------------------------------------------------------------------
+  */
+
+  if (loading) {
+    return (
+      <main className="seller-reviews-page">
+        <div className="seller-reviews-container">
+          <div className="seller-reviews-empty">
+            <RefreshCw
+              size={30}
+              className="seller-reviews-spinner"
+            />
+
+            <h3>
+              Loading reviews...
+            </h3>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | RENDER
+  |--------------------------------------------------------------------------
+  */
 
   return (
     <main className="seller-reviews-page">
       <div className="seller-reviews-container">
 
-        {/* =====================================
-            HEADER
-        ===================================== */}
+        {/* Header */}
 
         <div className="seller-reviews-header">
 
@@ -175,38 +571,91 @@ function SellerReviews() {
               Seller Panel
             </p>
 
-            <h1>Customer Reviews</h1>
+            <h1>
+              Customer Reviews
+            </h1>
 
             <p className="seller-reviews-subtitle">
-              View and manage reviews submitted by
-              your customers.
+              View and manage reviews
+              submitted by your
+              customers.
             </p>
           </div>
 
+          <button
+            type="button"
+            className="seller-reviews-refresh-btn"
+            onClick={() =>
+              loadReviews(true)
+            }
+            disabled={refreshing}
+          >
+            <RefreshCw
+              size={16}
+              className={
+                refreshing
+                  ? "seller-reviews-spinner"
+                  : ""
+              }
+            />
+
+            {refreshing
+              ? "Refreshing..."
+              : "Refresh"}
+          </button>
+
         </div>
 
+        {/* Error */}
 
-        {/* =====================================
-            STATS
-        ===================================== */}
+        {error && (
+          <div className="seller-reviews-alert seller-reviews-error">
+            {error}
+          </div>
+        )}
+
+        {/* Success */}
+
+        {success && (
+          <div className="seller-reviews-alert seller-reviews-success">
+            {success}
+          </div>
+        )}
+
+        {/* Stats */}
 
         <div className="seller-review-stats">
 
           <div className="seller-review-stat-card">
-            <span>Total Reviews</span>
-            <strong>{totalReviews}</strong>
-          </div>
-
-          <div className="seller-review-stat-card">
-            <span>Visible Reviews</span>
-            <strong>{visibleReviews}</strong>
-          </div>
-
-          <div className="seller-review-stat-card">
-            <span>Average Rating</span>
+            <span>
+              Total Reviews
+            </span>
 
             <strong>
-              {averageRating}
+              {stats.total_reviews}
+            </strong>
+          </div>
+
+          <div className="seller-review-stat-card">
+            <span>
+              Visible Reviews
+            </span>
+
+            <strong>
+              {stats.visible_reviews}
+            </strong>
+          </div>
+
+          <div className="seller-review-stat-card">
+            <span>
+              Average Rating
+            </span>
+
+            <strong>
+              {Number(
+                stats.average_rating || 0
+              ).toFixed(1)}
+
               <span className="rating-small">
                 / 5
               </span>
@@ -215,10 +664,7 @@ function SellerReviews() {
 
         </div>
 
-
-        {/* =====================================
-            TOOLBAR
-        ===================================== */}
+        {/* Toolbar */}
 
         <div className="seller-reviews-toolbar">
 
@@ -231,14 +677,18 @@ function SellerReviews() {
               placeholder="Search reviews, customers or products..."
               value={search}
               onChange={(event) =>
-                setSearch(event.target.value)
+                setSearch(
+                  event.target.value
+                )
               }
             />
 
             {search && (
               <button
                 type="button"
-                onClick={() => setSearch("")}
+                onClick={() =>
+                  setSearch("")
+                }
                 aria-label="Clear search"
               >
                 <X size={16} />
@@ -249,195 +699,210 @@ function SellerReviews() {
 
           <span className="seller-review-result-count">
             {filteredReviews.length} review
-            {filteredReviews.length !== 1
+            {filteredReviews.length !==
+            1
               ? "s"
               : ""}
           </span>
 
         </div>
 
-
-        {/* =====================================
-            REVIEWS
-        ===================================== */}
+        {/* Reviews */}
 
         <div className="seller-reviews-list">
 
-          {filteredReviews.length === 0 ? (
-
+          {filteredReviews.length ===
+          0 ? (
             <div className="seller-reviews-empty">
 
               <Star size={38} />
 
-              <h3>No reviews found</h3>
+              <h3>
+                {reviews.length ===
+                0
+                  ? "No reviews yet"
+                  : "No reviews found"}
+              </h3>
 
               <p>
-                Try searching with another product
-                or customer name.
+                {reviews.length ===
+                0
+                  ? "Customer reviews will appear here."
+                  : "Try searching with another product or customer name."}
               </p>
 
             </div>
-
           ) : (
+            filteredReviews.map(
+              (review) => (
+                <article
+                  className={`seller-review-card ${
+                    !review.visible
+                      ? "review-hidden"
+                      : ""
+                  }`}
+                  key={review.id}
+                >
 
-            filteredReviews.map((review) => (
+                  {/* Product */}
 
-              <article
-                className={`seller-review-card ${
-                  !review.visible
-                    ? "review-hidden"
-                    : ""
-                }`}
-                key={review.id}
-              >
+                  <div className="seller-review-product">
 
-                {/* Product */}
+                    <span className="seller-review-label">
+                      PRODUCT
+                    </span>
 
-                <div className="seller-review-product">
+                    <strong>
+                      {review.product}
+                    </strong>
 
-                  <span className="seller-review-label">
-                    PRODUCT
-                  </span>
+                  </div>
 
-                  <strong>
-                    {review.product}
-                  </strong>
+                  {/* Customer */}
 
-                </div>
+                  <div className="seller-review-customer">
 
+                    <span className="seller-review-label">
+                      CUSTOMER
+                    </span>
 
-                {/* Customer */}
+                    <strong>
+                      {review.customer}
+                    </strong>
 
-                <div className="seller-review-customer">
+                    <small>
+                      {review.email ||
+                        "-"}
+                    </small>
 
-                  <span className="seller-review-label">
-                    CUSTOMER
-                  </span>
+                  </div>
 
-                  <strong>
-                    {review.customer}
-                  </strong>
+                  {/* Review */}
 
-                  <small>
-                    {review.email}
-                  </small>
+                  <div className="seller-review-content">
 
-                </div>
+                    <div className="seller-review-rating">
 
+                      {renderStars(
+                        review.rating
+                      )}
 
-                {/* Review */}
+                      <span>
+                        {review.rating}/5
+                      </span>
 
-                <div className="seller-review-content">
+                    </div>
 
-                  <div className="seller-review-rating">
+                    <p>
+                      "{review.review ||
+                        "No review text"}"
+                    </p>
 
-                    {renderStars(review.rating)}
+                    <small>
+                      {formatDate(
+                        review.created_at ||
+                          review.date
+                      )}
+                    </small>
 
-                    <span>
-                      {review.rating}/5
+                  </div>
+
+                  {/* Status */}
+
+                  <div className="seller-review-status">
+
+                    <span
+                      className={
+                        review.visible
+                          ? "status-visible"
+                          : "status-hidden"
+                      }
+                    >
+                      {review.visible
+                        ? "Visible"
+                        : "Hidden"}
                     </span>
 
                   </div>
 
-                  <p>
-                    "{review.review}"
-                  </p>
+                  {/* Actions */}
 
-                  <small>
-                    {review.date}
-                  </small>
+                  <div className="seller-review-actions">
 
-                </div>
-
-
-                {/* Status */}
-
-                <div className="seller-review-status">
-
-                  <span
-                    className={
-                      review.visible
-                        ? "status-visible"
-                        : "status-hidden"
-                    }
-                  >
-                    {review.visible
-                      ? "Visible"
-                      : "Hidden"}
-                  </span>
-
-                </div>
-
-
-                {/* Actions */}
-
-                <div className="seller-review-actions">
-
-                  <button
-                    type="button"
-                    className="review-view-btn"
-                    onClick={() =>
-                      setSelectedReview(review)
-                    }
-                    title="View review"
-                  >
-                    <Eye size={17} />
-                  </button>
-
-                  <button
-                    type="button"
-                    className="review-toggle-btn"
-                    onClick={() =>
-                      handleToggleVisibility(
-                        review.id
-                      )
-                    }
-                    title={
-                      review.visible
-                        ? "Hide review"
-                        : "Show review"
-                    }
-                  >
-                    {review.visible ? (
-                      <EyeOff size={17} />
-                    ) : (
+                    <button
+                      type="button"
+                      className="review-view-btn"
+                      onClick={() =>
+                        setSelectedReview(
+                          review
+                        )
+                      }
+                      title="View review"
+                    >
                       <Eye size={17} />
-                    )}
-                  </button>
+                    </button>
 
-                  <button
-                    type="button"
-                    className="review-delete-btn"
-                    onClick={() =>
-                      handleDelete(review.id)
-                    }
-                    title="Delete review"
-                  >
-                    <Trash2 size={17} />
-                  </button>
+                    <button
+                      type="button"
+                      className="review-toggle-btn"
+                      onClick={() =>
+                        handleToggleVisibility(
+                          review
+                        )
+                      }
+                      title={
+                        review.visible
+                          ? "Hide review"
+                          : "Show review"
+                      }
+                    >
+                      {review.visible ? (
+                        <EyeOff
+                          size={17}
+                        />
+                      ) : (
+                        <Eye
+                          size={17}
+                        />
+                      )}
+                    </button>
 
-                </div>
+                    <button
+                      type="button"
+                      className="review-delete-btn"
+                      onClick={() =>
+                        handleDelete(
+                          review.id
+                        )
+                      }
+                      title="Delete review"
+                    >
+                      <Trash2
+                        size={17}
+                      />
+                    </button>
 
-              </article>
+                  </div>
 
-            ))
-
+                </article>
+              )
+            )
           )}
 
         </div>
 
       </div>
 
-
-      {/* =====================================
-          REVIEW DETAILS MODAL
-      ===================================== */}
+      {/* Review Modal */}
 
       {selectedReview && (
-
         <div
           className="seller-review-modal-overlay"
-          onClick={() => setSelectedReview(null)}
+          onClick={() =>
+            setSelectedReview(
+              null
+            )
+          }
         >
 
           <div
@@ -462,7 +927,9 @@ function SellerReviews() {
               <button
                 type="button"
                 onClick={() =>
-                  setSelectedReview(null)
+                  setSelectedReview(
+                    null
+                  )
                 }
                 aria-label="Close"
               >
@@ -470,7 +937,6 @@ function SellerReviews() {
               </button>
 
             </div>
-
 
             <div className="seller-review-modal-body">
 
@@ -481,11 +947,11 @@ function SellerReviews() {
                 </strong>
 
                 <span>
-                  {selectedReview.email}
+                  {selectedReview.email ||
+                    "-"}
                 </span>
 
               </div>
-
 
               <div className="modal-rating">
 
@@ -499,19 +965,22 @@ function SellerReviews() {
 
               </div>
 
-
               <p className="modal-review-text">
-                "{selectedReview.review}"
+                "
+                {selectedReview.review ||
+                  "No review text"}
+                "
               </p>
-
 
               <div className="modal-review-date">
                 Submitted on{" "}
-                {selectedReview.date}
+                {formatDate(
+                  selectedReview.created_at ||
+                    selectedReview.date
+                )}
               </div>
 
             </div>
-
 
             <div className="seller-review-modal-footer">
 
@@ -520,7 +989,7 @@ function SellerReviews() {
                 className="modal-toggle-btn"
                 onClick={() =>
                   handleToggleVisibility(
-                    selectedReview.id
+                    selectedReview
                   )
                 }
               >
@@ -539,6 +1008,7 @@ function SellerReviews() {
                 }
               >
                 <Trash2 size={16} />
+
                 Delete Review
               </button>
 
@@ -547,7 +1017,6 @@ function SellerReviews() {
           </div>
 
         </div>
-
       )}
 
     </main>
