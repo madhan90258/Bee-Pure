@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 
 import {
+  useCallback,
   useEffect,
   useState,
 } from "react";
@@ -18,15 +19,17 @@ import {
 
 import { supabase } from "../lib/supabase";
 
-
 const API_URL =
   import.meta.env.VITE_API_URL ||
   "http://localhost:5000";
 
-
 function Navbar() {
   const location =
     useLocation();
+
+  // =========================================
+  // UI STATE
+  // =========================================
 
   const [isMenuOpen, setIsMenuOpen] =
     useState(false);
@@ -37,65 +40,114 @@ function Navbar() {
   const [favoritesCount, setFavoritesCount] =
     useState(0);
 
+  // =========================================
+  // AUTH STATE
+  // =========================================
+
   const [isLoggedIn, setIsLoggedIn] =
     useState(false);
 
+  const [userRole, setUserRole] =
+    useState(null);
 
   // =========================================
-  // GET SESSION
+  // GET SESSION + ROLE
   // =========================================
 
-  const getSession = async () => {
-    try {
-      const {
-        data,
-        error,
-      } =
-        await supabase.auth.getSession();
+  const getSession =
+    useCallback(async () => {
+      try {
+        const {
+          data,
+          error,
+        } =
+          await supabase.auth.getSession();
 
-      if (error) {
+        if (error) {
+          console.error(
+            "Navbar session error:",
+            error
+          );
+
+          setIsLoggedIn(false);
+          setUserRole(null);
+
+          return null;
+        }
+
+        const session =
+          data?.session || null;
+
+        // -----------------------------------------
+        // NOT LOGGED IN
+        // -----------------------------------------
+
+        if (!session) {
+          setIsLoggedIn(false);
+          setUserRole(null);
+
+          return null;
+        }
+
+        // -----------------------------------------
+        // LOGGED IN
+        // -----------------------------------------
+
+        setIsLoggedIn(true);
+
+        // -----------------------------------------
+        // GET ROLE
+        // -----------------------------------------
+
+        const {
+          data: profile,
+          error: profileError,
+        } =
+          await supabase
+            .from("profiles")
+            .select("role")
+            .eq(
+              "id",
+              session.user.id
+            )
+            .single();
+
+        if (profileError) {
+          console.error(
+            "Navbar profile error:",
+            profileError
+          );
+
+          setUserRole(null);
+
+          return session;
+        }
+
+        setUserRole(
+          profile?.role || null
+        );
+
+        return session;
+      } catch (error) {
         console.error(
           "Navbar session error:",
           error
         );
 
         setIsLoggedIn(false);
+        setUserRole(null);
 
         return null;
       }
-
-      const session =
-        data?.session || null;
-
-      setIsLoggedIn(
-        Boolean(session)
-      );
-
-      return session;
-
-    } catch (error) {
-      console.error(
-        "Navbar session error:",
-        error
-      );
-
-      setIsLoggedIn(false);
-
-      return null;
-    }
-  };
-
+    }, []);
 
   // =========================================
-  // GET CART COUNT FROM BACKEND
+  // UPDATE CART COUNT
   // =========================================
 
   const updateCartCount =
-    async () => {
+    useCallback(async (session) => {
       try {
-        const session =
-          await getSession();
-
         if (!session) {
           setCartCount(0);
           return;
@@ -114,13 +166,15 @@ function Navbar() {
             }
           );
 
+        if (!response.ok) {
+          setCartCount(0);
+          return;
+        }
+
         const result =
           await response.json();
 
-        if (
-          !response.ok ||
-          !result.success
-        ) {
+        if (!result.success) {
           setCartCount(0);
           return;
         }
@@ -140,7 +194,6 @@ function Navbar() {
         setCartCount(
           totalItems
         );
-
       } catch (error) {
         console.error(
           "Unable to load cart count:",
@@ -149,19 +202,15 @@ function Navbar() {
 
         setCartCount(0);
       }
-    };
-
+    }, []);
 
   // =========================================
-  // GET FAVORITES COUNT FROM BACKEND
+  // UPDATE FAVORITES COUNT
   // =========================================
 
   const updateFavoritesCount =
-    async () => {
+    useCallback(async (session) => {
       try {
-        const session =
-          await getSession();
-
         if (!session) {
           setFavoritesCount(0);
           return;
@@ -180,22 +229,25 @@ function Navbar() {
             }
           );
 
+        if (!response.ok) {
+          setFavoritesCount(0);
+          return;
+        }
+
         const result =
           await response.json();
 
-        if (
-          !response.ok ||
-          !result.success
-        ) {
+        if (!result.success) {
           setFavoritesCount(0);
           return;
         }
 
         setFavoritesCount(
-          (result.favorites || [])
-            .length
+          (
+            result.favorites ||
+            []
+          ).length
         );
-
       } catch (error) {
         console.error(
           "Unable to load favorites count:",
@@ -204,23 +256,33 @@ function Navbar() {
 
         setFavoritesCount(0);
       }
-    };
-
+    }, []);
 
   // =========================================
-  // UPDATE USER DATA
+  // UPDATE ALL USER DATA
   // =========================================
 
   const updateUserData =
-    async () => {
-      await getSession();
+    useCallback(async () => {
+      const session =
+        await getSession();
+
+      if (!session) {
+        setCartCount(0);
+        setFavoritesCount(0);
+
+        return;
+      }
 
       await Promise.all([
-        updateCartCount(),
-        updateFavoritesCount(),
+        updateCartCount(session),
+        updateFavoritesCount(session),
       ]);
-    };
-
+    }, [
+      getSession,
+      updateCartCount,
+      updateFavoritesCount,
+    ]);
 
   // =========================================
   // INITIAL LOAD + AUTH LISTENER
@@ -241,26 +303,32 @@ function Navbar() {
     return () => {
       authListener?.subscription?.unsubscribe();
     };
-  }, []);
-
+  }, [updateUserData]);
 
   // =========================================
   // CART / FAVORITES EVENTS
   // =========================================
 
   useEffect(() => {
-
     const handleCartUpdate =
-      () => {
-        updateCartCount();
-      };
+      async () => {
+        const session =
+          await getSession();
 
+        await updateCartCount(
+          session
+        );
+      };
 
     const handleFavoritesUpdate =
-      () => {
-        updateFavoritesCount();
-      };
+      async () => {
+        const session =
+          await getSession();
 
+        await updateFavoritesCount(
+          session
+        );
+      };
 
     window.addEventListener(
       "beePureCartUpdated",
@@ -277,9 +345,7 @@ function Navbar() {
       handleFavoritesUpdate
     );
 
-
     return () => {
-
       window.removeEventListener(
         "beePureCartUpdated",
         handleCartUpdate
@@ -294,11 +360,12 @@ function Navbar() {
         "favoritesUpdated",
         handleFavoritesUpdate
       );
-
     };
-
-  }, []);
-
+  }, [
+    getSession,
+    updateCartCount,
+    updateFavoritesCount,
+  ]);
 
   // =========================================
   // CLOSE MOBILE MENU
@@ -307,7 +374,6 @@ function Navbar() {
   const closeMenu = () => {
     setIsMenuOpen(false);
   };
-
 
   // =========================================
   // TOGGLE MOBILE MENU
@@ -318,7 +384,6 @@ function Navbar() {
       (current) => !current
     );
   };
-
 
   // =========================================
   // ACTIVE LINK
@@ -338,16 +403,68 @@ function Navbar() {
     );
   };
 
+  // =========================================
+  // ACCOUNT ROUTE
+  // =========================================
+
+  const getAccountRoute = () => {
+    // Logged out
+    if (!isLoggedIn) {
+      return "/login";
+    }
+
+    // Seller / Admin
+    if (
+      userRole === "seller" ||
+      userRole === "admin"
+    ) {
+      return "/seller/account";
+    }
+
+    // Customer
+    if (
+      userRole === "customer"
+    ) {
+      return "/account";
+    }
+
+    // Unknown role
+    return "/login";
+  };
 
   // =========================================
-  // LOGO
+  // ACCOUNT LABEL
+  // =========================================
+
+  const getAccountLabel = () => {
+    if (!isLoggedIn) {
+      return "Login";
+    }
+
+    if (
+      userRole === "seller" ||
+      userRole === "admin"
+    ) {
+      return "Seller Account";
+    }
+
+    if (
+      userRole === "customer"
+    ) {
+      return "My Account";
+    }
+
+    return "Login";
+  };
+
+  // =========================================
+  // RENDER
   // =========================================
 
   return (
     <header className="navbar">
 
       <div className="container navbar-container">
-
 
         {/* =====================================
             MOBILE MENU BUTTON
@@ -366,15 +483,12 @@ function Navbar() {
             isMenuOpen
           }
         >
-
           {isMenuOpen ? (
             <X size={24} />
           ) : (
             <Menu size={24} />
           )}
-
         </button>
-
 
         {/* =====================================
             LOGO
@@ -386,7 +500,6 @@ function Navbar() {
           onClick={closeMenu}
           aria-label="Bee Pure Home"
         >
-
           <span className="navbar-logo-icon">
             🐝
           </span>
@@ -394,9 +507,7 @@ function Navbar() {
           <span className="navbar-logo-text">
             Bee <span>Pure</span>
           </span>
-
         </Link>
-
 
         {/* =====================================
             DESKTOP NAVIGATION
@@ -418,7 +529,6 @@ function Navbar() {
             Home
           </Link>
 
-
           <Link
             to="/shop"
             className={`navbar-link ${
@@ -429,7 +539,6 @@ function Navbar() {
           >
             Shop
           </Link>
-
 
           <Link
             to="/our-story"
@@ -442,7 +551,6 @@ function Navbar() {
             Our Story
           </Link>
 
-
           <Link
             to="/farmers"
             className={`navbar-link ${
@@ -453,7 +561,6 @@ function Navbar() {
           >
             Farmers
           </Link>
-
 
           <Link
             to="/contact"
@@ -468,13 +575,11 @@ function Navbar() {
 
         </nav>
 
-
         {/* =====================================
             RIGHT ACTIONS
         ====================================== */}
 
         <div className="navbar-actions">
-
 
           {/* FAVORITES */}
 
@@ -488,7 +593,6 @@ function Navbar() {
             aria-label="Favorites"
             onClick={closeMenu}
           >
-
             <Heart size={20} />
 
             {favoritesCount > 0 && (
@@ -498,9 +602,7 @@ function Navbar() {
                   : favoritesCount}
               </span>
             )}
-
           </Link>
-
 
           {/* CART */}
 
@@ -514,8 +616,9 @@ function Navbar() {
             aria-label="Shopping cart"
             onClick={closeMenu}
           >
-
-            <ShoppingCart size={21} />
+            <ShoppingCart
+              size={21}
+            />
 
             {cartCount > 0 && (
               <span className="navbar-cart-count">
@@ -524,38 +627,28 @@ function Navbar() {
                   : cartCount}
               </span>
             )}
-
           </Link>
-
 
           {/* ACCOUNT */}
 
           <Link
-            to={
-              isLoggedIn
-                ? "/account"
-                : "/login"
-            }
+            to={getAccountRoute()}
             className={`icon-btn navbar-action ${
               isActive("/account") ||
+              isActive("/seller/account") ||
               isActive("/login")
                 ? "active"
                 : ""
             }`}
             aria-label={
-              isLoggedIn
-                ? "My account"
-                : "Login"
+              getAccountLabel()
             }
             onClick={closeMenu}
           >
-
             <User size={20} />
-
           </Link>
 
         </div>
-
 
         {/* =====================================
             MOBILE NAVIGATION
@@ -582,7 +675,6 @@ function Navbar() {
             Home
           </Link>
 
-
           <Link
             to="/shop"
             className={`navbar-mobile-link ${
@@ -594,7 +686,6 @@ function Navbar() {
           >
             Shop
           </Link>
-
 
           <Link
             to="/our-story"
@@ -608,7 +699,6 @@ function Navbar() {
             Our Story
           </Link>
 
-
           <Link
             to="/farmers"
             className={`navbar-mobile-link ${
@@ -621,7 +711,6 @@ function Navbar() {
             Farmers
           </Link>
 
-
           <Link
             to="/contact"
             className={`navbar-mobile-link ${
@@ -633,7 +722,6 @@ function Navbar() {
           >
             Contact
           </Link>
-
 
           {/* MOBILE FAVORITES */}
 
@@ -650,12 +738,12 @@ function Navbar() {
 
             {favoritesCount > 0 && (
               <span className="navbar-mobile-count">
-                {favoritesCount}
+                {favoritesCount > 99
+                  ? "99+"
+                  : favoritesCount}
               </span>
             )}
-
           </Link>
-
 
           {/* MOBILE CART */}
 
@@ -672,32 +760,27 @@ function Navbar() {
 
             {cartCount > 0 && (
               <span className="navbar-mobile-count">
-                {cartCount}
+                {cartCount > 99
+                  ? "99+"
+                  : cartCount}
               </span>
             )}
-
           </Link>
-
 
           {/* MOBILE ACCOUNT */}
 
           <Link
-            to={
-              isLoggedIn
-                ? "/account"
-                : "/login"
-            }
+            to={getAccountRoute()}
             className={`navbar-mobile-link ${
               isActive("/account") ||
+              isActive("/seller/account") ||
               isActive("/login")
                 ? "active"
                 : ""
             }`}
             onClick={closeMenu}
           >
-            {isLoggedIn
-              ? "My Account"
-              : "Login"}
+            {getAccountLabel()}
           </Link>
 
         </nav>

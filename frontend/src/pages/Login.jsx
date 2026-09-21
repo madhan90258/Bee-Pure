@@ -1,5 +1,9 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+
+import {
+  useNavigate,
+} from "react-router-dom";
+
 import {
   Mail,
   Lock,
@@ -9,350 +13,653 @@ import {
   Store,
   ArrowRight,
 } from "lucide-react";
-import { supabase } from "../lib/supabase";
-import "../styles/Login.css";
 
-window.beePureSupabase = supabase;
+import { supabase } from "../lib/supabase";
+
+import "../styles/Login.css";
 
 const Login = () => {
   const navigate = useNavigate();
 
-  const [loginType, setLoginType] = useState("customer");
+  // =========================================
+  // LOGIN TYPE
+  // =========================================
 
-  // Customer
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [loginType, setLoginType] =
+    useState("customer");
 
-  // Seller
-  const [sellerEmail, setSellerEmail] = useState("");
-  const [sellerPassword, setSellerPassword] = useState("");
+  // =========================================
+  // CUSTOMER
+  // =========================================
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [email, setEmail] =
+    useState("");
 
-  // -----------------------------
-  // TEST BACKEND AUTHENTICATION
-  // -----------------------------
-  const testBackendAuthentication = async () => {
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+  const [password, setPassword] =
+    useState("");
 
-      if (!session?.access_token) {
-        console.error("Backend auth test: No access token found.");
+  // =========================================
+  // SELLER
+  // =========================================
+
+  const [sellerEmail, setSellerEmail] =
+    useState("");
+
+  const [sellerPassword, setSellerPassword] =
+    useState("");
+
+  // =========================================
+  // UI STATE
+  // =========================================
+
+  const [showPassword, setShowPassword] =
+    useState(false);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [message, setMessage] =
+    useState("");
+
+  const [error, setError] =
+    useState("");
+
+  // =========================================
+  // BACKEND AUTH TEST
+  // =========================================
+
+  const testBackendAuthentication =
+    async () => {
+      try {
+        const {
+          data: { session },
+        } =
+          await supabase.auth.getSession();
+
+        if (!session?.access_token) {
+          console.error(
+            "Backend auth test: No access token found."
+          );
+
+          return null;
+        }
+
+        const API_URL =
+          import.meta.env.VITE_API_URL ||
+          "http://localhost:5000";
+
+        const response =
+          await fetch(
+            `${API_URL}/api/auth/me`,
+            {
+              method: "GET",
+
+              headers: {
+                Authorization:
+                  `Bearer ${session.access_token}`,
+              },
+            }
+          );
+
+        const result =
+          await response.json();
+
+        console.log(
+          "BACKEND AUTH RESPONSE:",
+          result
+        );
+
+        return result;
+      } catch (error) {
+        console.error(
+          "Backend authentication test failed:",
+          error
+        );
+
         return null;
       }
+    };
 
-      const response = await fetch(
-        "http://localhost:5000/api/auth/me",
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        }
-      );
-
-      const result = await response.json();
-
-      console.log("BACKEND AUTH RESPONSE:", result);
-
-      return result;
-    } catch (error) {
-      console.error("Backend authentication test failed:", error);
-      return null;
-    }
-  };
-
-  // -----------------------------
+  // =========================================
   // CUSTOMER LOGIN
-  // -----------------------------
-  const handleCustomerLogin = async (e) => {
-    e.preventDefault();
+  // =========================================
 
-    setError("");
-    setMessage("");
+  const handleCustomerLogin =
+    async (e) => {
+      e.preventDefault();
 
-    if (!email.trim() || !password) {
-      setError("Please enter your email and password.");
-      return;
-    }
+      setError("");
+      setMessage("");
 
-    setLoading(true);
-
-    try {
-      const { data, error } =
-        await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
-
-      if (error) {
-        throw error;
-      }
-
-      if (!data.user) {
-        throw new Error("Unable to login. Please try again.");
-      }
-
-      // Test Express backend authentication
-      await testBackendAuthentication();
-
-      setMessage("Login successful!");
-
-      // Go to customer account page
-      setTimeout(() => {
-        navigate("/account");
-      }, 500);
-    } catch (err) {
-      console.error("Customer login error:", err);
-
-      if (err.message?.toLowerCase().includes("invalid login")) {
-        setError("Invalid email or password.");
-      } else {
-        setError(err.message || "Login failed. Please try again.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // -----------------------------
-  // SELLER LOGIN
-  // -----------------------------
-  const handleSellerLogin = async (e) => {
-    e.preventDefault();
-
-    setError("");
-    setMessage("");
-
-    if (!sellerEmail.trim() || !sellerPassword) {
-      setError("Please enter your email and password.");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const { data, error } =
-        await supabase.auth.signInWithPassword({
-          email: sellerEmail.trim(),
-          password: sellerPassword,
-        });
-
-      if (error) {
-        throw error;
-      }
-
-      if (!data.user) {
-        throw new Error("Unable to login. Please try again.");
-      }
-
-      // Check the user's role from profiles
-      const { data: profile, error: profileError } =
-        await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", data.user.id)
-          .single();
-
-      if (profileError) {
-        console.error(
-          "Profile lookup error:",
-          profileError
-        );
-
-        // Sign out if we cannot verify the seller role
-        await supabase.auth.signOut();
-
-        throw new Error(
-          "Unable to verify seller account."
-        );
-      }
-
+      // Validate input
       if (
-        profile.role !== "seller" &&
-        profile.role !== "admin"
+        !email.trim() ||
+        !password
       ) {
-        await supabase.auth.signOut();
-
-        throw new Error(
-          "This account is not registered as a seller."
-        );
-      }
-
-      // Test Express backend authentication
-      await testBackendAuthentication();
-
-      setMessage("Seller login successful!");
-
-      setTimeout(() => {
-        navigate("/seller/dashboard");
-      }, 500);
-    } catch (err) {
-      console.error("Seller login error:", err);
-
-      if (err.message?.toLowerCase().includes("invalid login")) {
-        setError("Invalid email or password.");
-      } else {
         setError(
-          err.message || "Seller login failed."
+          "Please enter your email and password."
         );
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  // -----------------------------
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        // -----------------------------------------
+        // SUPABASE LOGIN
+        // -----------------------------------------
+
+        const {
+          data,
+          error: loginError,
+        } =
+          await supabase.auth.signInWithPassword(
+            {
+              email:
+                email.trim(),
+              password,
+            }
+          );
+
+        if (loginError) {
+          throw loginError;
+        }
+
+        if (!data?.user) {
+          throw new Error(
+            "Unable to login. Please try again."
+          );
+        }
+
+        // -----------------------------------------
+        // GET PROFILE ROLE
+        // -----------------------------------------
+
+        const {
+          data: profile,
+          error: profileError,
+        } =
+          await supabase
+            .from("profiles")
+            .select("role")
+            .eq(
+              "id",
+              data.user.id
+            )
+            .single();
+
+        if (profileError) {
+          console.error(
+            "Customer profile lookup error:",
+            profileError
+          );
+
+          await supabase.auth.signOut();
+
+          throw new Error(
+            "Unable to verify customer account."
+          );
+        }
+
+        const role =
+          profile?.role;
+
+        // -----------------------------------------
+        // SELLER USING CUSTOMER LOGIN
+        // -----------------------------------------
+
+        if (
+          role === "seller" ||
+          role === "admin"
+        ) {
+          await supabase.auth.signOut();
+
+          throw new Error(
+            "This account is registered as a seller. Please use Seller Login."
+          );
+        }
+
+        // -----------------------------------------
+        // INVALID ROLE
+        // -----------------------------------------
+
+        if (role !== "customer") {
+          await supabase.auth.signOut();
+
+          throw new Error(
+            "This account is not registered as a customer."
+          );
+        }
+
+        // -----------------------------------------
+        // BACKEND AUTH TEST
+        // -----------------------------------------
+
+        await testBackendAuthentication();
+
+        setMessage(
+          "Login successful!"
+        );
+
+        // -----------------------------------------
+        // CUSTOMER ACCOUNT
+        // -----------------------------------------
+
+        setTimeout(() => {
+          navigate(
+            "/account",
+            {
+              replace: true,
+            }
+          );
+        }, 500);
+
+      } catch (err) {
+        console.error(
+          "Customer login error:",
+          err
+        );
+
+        const errorMessage =
+          err?.message || "";
+
+        if (
+          errorMessage
+            .toLowerCase()
+            .includes(
+              "invalid login"
+            )
+        ) {
+          setError(
+            "Invalid email or password."
+          );
+        } else {
+          setError(
+            errorMessage ||
+              "Login failed. Please try again."
+          );
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+  // =========================================
+  // SELLER LOGIN
+  // =========================================
+
+  const handleSellerLogin =
+    async (e) => {
+      e.preventDefault();
+
+      setError("");
+      setMessage("");
+
+      // Validate input
+      if (
+        !sellerEmail.trim() ||
+        !sellerPassword
+      ) {
+        setError(
+          "Please enter your seller email and password."
+        );
+
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        // -----------------------------------------
+        // SUPABASE LOGIN
+        // -----------------------------------------
+
+        const {
+          data,
+          error: loginError,
+        } =
+          await supabase.auth.signInWithPassword(
+            {
+              email:
+                sellerEmail.trim(),
+              password:
+                sellerPassword,
+            }
+          );
+
+        if (loginError) {
+          throw loginError;
+        }
+
+        if (!data?.user) {
+          throw new Error(
+            "Unable to login. Please try again."
+          );
+        }
+
+        // -----------------------------------------
+        // GET PROFILE ROLE
+        // -----------------------------------------
+
+        const {
+          data: profile,
+          error: profileError,
+        } =
+          await supabase
+            .from("profiles")
+            .select("role")
+            .eq(
+              "id",
+              data.user.id
+            )
+            .single();
+
+        if (profileError) {
+          console.error(
+            "Seller profile lookup error:",
+            profileError
+          );
+
+          await supabase.auth.signOut();
+
+          throw new Error(
+            "Unable to verify seller account."
+          );
+        }
+
+        const role =
+          profile?.role;
+
+        // -----------------------------------------
+        // CUSTOMER USING SELLER LOGIN
+        // -----------------------------------------
+
+        if (
+          role === "customer"
+        ) {
+          await supabase.auth.signOut();
+
+          throw new Error(
+            "This account is registered as a customer. Please use Customer Login."
+          );
+        }
+
+        // -----------------------------------------
+        // ONLY SELLER / ADMIN ALLOWED
+        // -----------------------------------------
+
+        if (
+          role !== "seller" &&
+          role !== "admin"
+        ) {
+          await supabase.auth.signOut();
+
+          throw new Error(
+            "This account is not registered as a seller."
+          );
+        }
+
+        // -----------------------------------------
+        // BACKEND AUTH TEST
+        // -----------------------------------------
+
+        await testBackendAuthentication();
+
+        setMessage(
+          "Seller login successful!"
+        );
+
+        // -----------------------------------------
+        // SELLER ACCOUNT FIRST
+        // -----------------------------------------
+
+        setTimeout(() => {
+          navigate(
+            "/seller/account",
+            {
+              replace: true,
+            }
+          );
+        }, 500);
+
+      } catch (err) {
+        console.error(
+          "Seller login error:",
+          err
+        );
+
+        const errorMessage =
+          err?.message || "";
+
+        if (
+          errorMessage
+            .toLowerCase()
+            .includes(
+              "invalid login"
+            )
+        ) {
+          setError(
+            "Invalid email or password."
+          );
+        } else {
+          setError(
+            errorMessage ||
+              "Seller login failed."
+          );
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+  // =========================================
   // FORGOT PASSWORD
-  // -----------------------------
-  const handleForgotPassword = async () => {
-    setError("");
-    setMessage("");
+  // =========================================
 
-    const resetEmail =
-      loginType === "customer"
-        ? email.trim()
-        : sellerEmail.trim();
+  const handleForgotPassword =
+    async () => {
+      setError("");
+      setMessage("");
 
-    if (!resetEmail) {
-      setError("Enter your email address first.");
-      return;
-    }
+      const resetEmail =
+        loginType === "customer"
+          ? email.trim()
+          : sellerEmail.trim();
 
-    setLoading(true);
-
-    try {
-      const { error } =
-        await supabase.auth.resetPasswordForEmail(
-          resetEmail,
-          {
-            redirectTo: `${window.location.origin}/reset-password`,
-          }
+      if (!resetEmail) {
+        setError(
+          "Enter your email address first."
         );
 
-      if (error) {
-        throw error;
+        return;
       }
 
-      setMessage(
-        "Password reset instructions have been sent to your email."
-      );
-    } catch (err) {
-      console.error(
-        "Password reset error:",
-        err
-      );
+      setLoading(true);
 
-      setError(
-        err.message ||
-          "Unable to send password reset email."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+      try {
+        const {
+          error: resetError,
+        } =
+          await supabase.auth.resetPasswordForEmail(
+            resetEmail,
+            {
+              redirectTo:
+                `${window.location.origin}/reset-password`,
+            }
+          );
 
-  // -----------------------------
+        if (resetError) {
+          throw resetError;
+        }
+
+        setMessage(
+          "Password reset instructions have been sent to your email."
+        );
+      } catch (err) {
+        console.error(
+          "Password reset error:",
+          err
+        );
+
+        setError(
+          err?.message ||
+            "Unable to send password reset email."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+  // =========================================
   // GOOGLE LOGIN
-  // -----------------------------
-  const handleGoogleLogin = async () => {
-    setError("");
-    setMessage("");
+  // =========================================
 
-    setLoading(true);
+  const handleGoogleLogin =
+    async () => {
+      setError("");
+      setMessage("");
+      setLoading(true);
 
-    try {
-      const { error } =
-        await supabase.auth.signInWithOAuth({
-          provider: "google",
-          options: {
-            redirectTo: `${window.location.origin}/account`,
-          },
-        });
+      try {
+        /*
+         * Google login is treated as customer login.
+         *
+         * The RoleProtectedRoute will still verify
+         * the actual profile role after redirect.
+         */
 
-      if (error) {
-        throw error;
+        const {
+          error: googleError,
+        } =
+          await supabase.auth.signInWithOAuth(
+            {
+              provider: "google",
+
+              options: {
+                redirectTo:
+                  `${window.location.origin}/account`,
+              },
+            }
+          );
+
+        if (googleError) {
+          throw googleError;
+        }
+      } catch (err) {
+        console.error(
+          "Google login error:",
+          err
+        );
+
+        setError(
+          err?.message ||
+            "Google login failed."
+        );
+
+        setLoading(false);
       }
-    } catch (err) {
-      console.error(
-        "Google login error:",
-        err
-      );
+    };
 
-      setError(
-        err.message || "Google login failed."
-      );
-
-      setLoading(false);
-    }
-  };
-
-  // -----------------------------
+  // =========================================
   // SWITCH LOGIN TYPE
-  // -----------------------------
-  const handleLoginTypeChange = (type) => {
-    setLoginType(type);
-    setError("");
-    setMessage("");
-  };
+  // =========================================
+
+  const handleLoginTypeChange =
+    (type) => {
+      setLoginType(type);
+
+      setError("");
+      setMessage("");
+      setShowPassword(false);
+    };
+
+  // =========================================
+  // UI
+  // =========================================
 
   return (
     <div className="login-page">
+
       <div className="login-container">
+
         <div className="login-card">
 
-          {/* Header */}
+          {/* =====================================
+              HEADER
+          ====================================== */}
+
           <div className="login-header">
-            <h1>Welcome Back</h1>
+
+            <h1>
+              Welcome Back
+            </h1>
+
             <p>
               Login to your Bee Pure account
             </p>
+
           </div>
 
-          {/* Customer / Seller Tabs */}
+          {/* =====================================
+              LOGIN TYPE
+          ====================================== */}
+
           <div className="login-type-tabs">
+
             <button
               type="button"
               className={
-                loginType === "customer"
+                loginType ===
+                "customer"
                   ? "active"
                   : ""
               }
               onClick={() =>
-                handleLoginTypeChange("customer")
+                handleLoginTypeChange(
+                  "customer"
+                )
               }
             >
               <User size={18} />
+
               Customer
             </button>
 
             <button
               type="button"
               className={
-                loginType === "seller"
+                loginType ===
+                "seller"
                   ? "active"
                   : ""
               }
               onClick={() =>
-                handleLoginTypeChange("seller")
+                handleLoginTypeChange(
+                  "seller"
+                )
               }
             >
               <Store size={18} />
+
               Seller
             </button>
+
           </div>
 
-          {/* Messages */}
+          {/* =====================================
+              ERROR
+          ====================================== */}
+
           {error && (
             <div className="login-error">
               {error}
             </div>
           )}
+
+          {/* =====================================
+              SUCCESS
+          ====================================== */}
 
           {message && (
             <div className="login-success">
@@ -360,19 +667,28 @@ const Login = () => {
             </div>
           )}
 
-          {/* =========================
+          {/* =====================================
               CUSTOMER LOGIN
-          ========================== */}
-          {loginType === "customer" && (
-            <form onSubmit={handleCustomerLogin}>
+          ====================================== */}
 
-              {/* Email */}
+          {loginType ===
+            "customer" && (
+            <form
+              onSubmit={
+                handleCustomerLogin
+              }
+            >
+
+              {/* EMAIL */}
+
               <div className="input-group">
+
                 <label htmlFor="customer-email">
                   Email Address
                 </label>
 
                 <div className="input-wrapper">
+
                   <Mail size={19} />
 
                   <input
@@ -381,21 +697,28 @@ const Login = () => {
                     placeholder="Enter your email"
                     value={email}
                     onChange={(e) =>
-                      setEmail(e.target.value)
+                      setEmail(
+                        e.target.value
+                      )
                     }
                     autoComplete="email"
                     required
                   />
+
                 </div>
+
               </div>
 
-              {/* Password */}
+              {/* PASSWORD */}
+
               <div className="input-group">
+
                 <label htmlFor="customer-password">
                   Password
                 </label>
 
                 <div className="input-wrapper">
+
                   <Lock size={19} />
 
                   <input
@@ -408,7 +731,9 @@ const Login = () => {
                     placeholder="Enter your password"
                     value={password}
                     onChange={(e) =>
-                      setPassword(e.target.value)
+                      setPassword(
+                        e.target.value
+                      )
                     }
                     autoComplete="current-password"
                     required
@@ -429,16 +754,24 @@ const Login = () => {
                     }
                   >
                     {showPassword ? (
-                      <EyeOff size={19} />
+                      <EyeOff
+                        size={19}
+                      />
                     ) : (
-                      <Eye size={19} />
+                      <Eye
+                        size={19}
+                      />
                     )}
                   </button>
+
                 </div>
+
               </div>
 
-              {/* Forgot Password */}
+              {/* FORGOT PASSWORD */}
+
               <div className="forgot-password">
+
                 <button
                   type="button"
                   onClick={
@@ -448,9 +781,11 @@ const Login = () => {
                 >
                   Forgot password?
                 </button>
+
               </div>
 
-              {/* Login Button */}
+              {/* LOGIN BUTTON */}
+
               <button
                 type="submit"
                 className="login-submit-btn"
@@ -461,20 +796,28 @@ const Login = () => {
                   : "Login"}
 
                 {!loading && (
-                  <ArrowRight size={18} />
+                  <ArrowRight
+                    size={18}
+                  />
                 )}
               </button>
 
-              {/* Divider */}
+              {/* DIVIDER */}
+
               <div className="login-divider">
-                <span>OR</span>
+                <span>
+                  OR
+                </span>
               </div>
 
-              {/* Google */}
+              {/* GOOGLE */}
+
               <button
                 type="button"
                 className="google-login-btn"
-                onClick={handleGoogleLogin}
+                onClick={
+                  handleGoogleLogin
+                }
                 disabled={loading}
               >
                 <span className="google-icon">
@@ -484,34 +827,50 @@ const Login = () => {
                 Continue with Google
               </button>
 
-              {/* Register */}
+              {/* REGISTER */}
+
               <div className="register-text">
+
                 Don't have an account?{" "}
+
                 <button
                   type="button"
                   onClick={() =>
-                    navigate("/signup")
+                    navigate(
+                      "/signup"
+                    )
                   }
                 >
                   Create Account
                 </button>
+
               </div>
+
             </form>
           )}
 
-          {/* =========================
+          {/* =====================================
               SELLER LOGIN
-          ========================== */}
-          {loginType === "seller" && (
-            <form onSubmit={handleSellerLogin}>
+          ====================================== */}
 
-              {/* Seller Email */}
+          {loginType ===
+            "seller" && (
+            <form
+              onSubmit={
+                handleSellerLogin
+              }
+            >
+
+              {/* EMAIL */}
+
               <div className="input-group">
+
                 <label htmlFor="seller-email">
                   Seller Email
                 </label>
 
                 <div className="input-wrapper">
+
                   <Mail size={19} />
 
                   <input
@@ -527,16 +886,21 @@ const Login = () => {
                     autoComplete="email"
                     required
                   />
+
                 </div>
+
               </div>
 
-              {/* Seller Password */}
+              {/* PASSWORD */}
+
               <div className="input-group">
+
                 <label htmlFor="seller-password">
                   Password
                 </label>
 
                 <div className="input-wrapper">
+
                   <Lock size={19} />
 
                   <input
@@ -547,7 +911,9 @@ const Login = () => {
                         : "password"
                     }
                     placeholder="Enter password"
-                    value={sellerPassword}
+                    value={
+                      sellerPassword
+                    }
                     onChange={(e) =>
                       setSellerPassword(
                         e.target.value
@@ -572,16 +938,24 @@ const Login = () => {
                     }
                   >
                     {showPassword ? (
-                      <EyeOff size={19} />
+                      <EyeOff
+                        size={19}
+                      />
                     ) : (
-                      <Eye size={19} />
+                      <Eye
+                        size={19}
+                      />
                     )}
                   </button>
+
                 </div>
+
               </div>
 
-              {/* Forgot Password */}
+              {/* FORGOT PASSWORD */}
+
               <div className="forgot-password">
+
                 <button
                   type="button"
                   onClick={
@@ -591,9 +965,11 @@ const Login = () => {
                 >
                   Forgot password?
                 </button>
+
               </div>
 
-              {/* Seller Login */}
+              {/* SELLER LOGIN */}
+
               <button
                 type="submit"
                 className="login-submit-btn"
@@ -604,11 +980,15 @@ const Login = () => {
                   : "Seller Login"}
 
                 {!loading && (
-                  <ArrowRight size={18} />
+                  <ArrowRight
+                    size={18}
+                  />
                 )}
               </button>
+
             </form>
           )}
+
         </div>
       </div>
     </div>

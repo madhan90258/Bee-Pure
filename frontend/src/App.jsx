@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+
 import {
   BrowserRouter,
   Routes,
@@ -6,8 +7,17 @@ import {
   useLocation,
 } from "react-router-dom";
 
+// =========================================
+// COMPONENTS
+// =========================================
+
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
+import RoleProtectedRoute from "./components/RoleProtectedRoute";
+
+// =========================================
+// CUSTOMER / PUBLIC PAGES
+// =========================================
 
 import Home from "./pages/Home";
 import Shop from "./pages/Shop";
@@ -15,15 +25,34 @@ import ProductDetails from "./pages/ProductDetails";
 import OurStory from "./pages/OurStory";
 import Farmers from "./pages/Farmers";
 import Contact from "./pages/Contact";
+
+// =========================================
+// SHOPPING
+// =========================================
+
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
+import Favorites from "./pages/Favorites";
+
+// =========================================
+// AUTHENTICATION
+// =========================================
+
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+
+// =========================================
+// CUSTOMER ACCOUNT
+// =========================================
+
 import Account from "./pages/Account";
 import Orders from "./pages/Orders";
 import OrderDetails from "./pages/OrderDetails";
 import Addresses from "./pages/Addresses";
-import Favorites from "./pages/Favorites";
+
+// =========================================
+// SELLER PAGES
+// =========================================
 
 import SellerDashboard from "./pages/SellerDashboard";
 import SellerProducts from "./pages/SellerProducts";
@@ -34,9 +63,9 @@ import SellerReviews from "./pages/SellerReviews";
 import SellerOrders from "./pages/SellerOrders";
 import SellerAccount from "./pages/SellerAccount";
 
-// -----------------------------------------
-// Scroll to top whenever route changes
-// -----------------------------------------
+// =========================================
+// SCROLL TO TOP
+// =========================================
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -52,13 +81,14 @@ function ScrollToTop() {
   return null;
 }
 
-// -----------------------------------------
+// =========================================
 // APP
-// -----------------------------------------
+// =========================================
 
 function App() {
   return (
     <BrowserRouter basename="/Bee-Pure">
+
       <ScrollToTop />
 
       <Navbar />
@@ -66,10 +96,13 @@ function App() {
       <Routes>
 
         {/* =================================
-            CUSTOMER PAGES
+            PUBLIC PAGES
         ================================== */}
 
-        <Route path="/" element={<Home />} />
+        <Route
+          path="/"
+          element={<Home />}
+        />
 
         <Route
           path="/shop"
@@ -110,8 +143,13 @@ function App() {
           element={<Checkout />}
         />
 
+        <Route
+          path="/favorites"
+          element={<Favorites />}
+        />
+
         {/* =================================
-            ACCOUNT / AUTHENTICATION
+            AUTHENTICATION
         ================================== */}
 
         <Route
@@ -124,14 +162,60 @@ function App() {
           element={<Signup />}
         />
 
+        {/* =================================
+            CUSTOMER ACCOUNT
+        ================================== */}
+
         <Route
           path="/account"
-          element={<Account />}
+          element={
+            <RoleProtectedRoute
+              allowedRole="customer"
+            >
+              <Account />
+            </RoleProtectedRoute>
+          }
+        />
+
+        {/* =================================
+            CUSTOMER ORDERS
+        ================================== */}
+
+        <Route
+          path="/orders"
+          element={
+            <RoleProtectedRoute
+              allowedRole="customer"
+            >
+              <Orders />
+            </RoleProtectedRoute>
+          }
         />
 
         <Route
-          path="/favorites"
-          element={<Favorites />}
+          path="/orders/:id"
+          element={
+            <RoleProtectedRoute
+              allowedRole="customer"
+            >
+              <OrderDetails />
+            </RoleProtectedRoute>
+          }
+        />
+
+        {/* =================================
+            CUSTOMER ADDRESSES
+        ================================== */}
+
+        <Route
+          path="/addresses"
+          element={
+            <RoleProtectedRoute
+              allowedRole="customer"
+            >
+              <Addresses />
+            </RoleProtectedRoute>
+          }
         />
 
         {/* =================================
@@ -140,56 +224,124 @@ function App() {
 
         <Route
           path="/seller/dashboard"
-          element={<SellerDashboard />}
+          element={
+            <RoleProtectedRoute
+              allowedRole="seller"
+            >
+              <SellerDashboard />
+            </RoleProtectedRoute>
+          }
         />
+
+        {/* =================================
+            SELLER PRODUCTS
+        ================================== */}
 
         <Route
           path="/seller/products"
-          element={<SellerProducts />}
+          element={
+            <RoleProtectedRoute
+              allowedRole="seller"
+            >
+              <SellerProducts />
+            </RoleProtectedRoute>
+          }
         />
+
+        {/* =================================
+            SELLER CATEGORIES
+        ================================== */}
 
         <Route
           path="/seller/categories"
-          element={<SellerCategories />}
+          element={
+            <RoleProtectedRoute
+              allowedRole="seller"
+            >
+              <SellerCategories />
+            </RoleProtectedRoute>
+          }
         />
+
+        {/* =================================
+            SELLER COUPONS
+        ================================== */}
 
         <Route
           path="/seller/coupons"
-          element={<SellerCoupons />}
+          element={
+            <RoleProtectedRoute
+              allowedRole="seller"
+            >
+              <SellerCoupons />
+            </RoleProtectedRoute>
+          }
         />
+
+        {/* =================================
+            SELLER MESSAGES
+        ================================== */}
 
         <Route
           path="/seller/messages"
-          element={<SellerMessages />}
+          element={
+            <RoleProtectedRoute
+              allowedRole="seller"
+            >
+              <SellerMessages />
+            </RoleProtectedRoute>
+          }
         />
+
+        {/* =================================
+            SELLER REVIEWS
+        ================================== */}
 
         <Route
           path="/seller/reviews"
-          element={<SellerReviews />}
+          element={
+            <RoleProtectedRoute
+              allowedRole="seller"
+            >
+              <SellerReviews />
+            </RoleProtectedRoute>
+          }
         />
+
+        {/* =================================
+            SELLER ORDERS
+        ================================== */}
 
         <Route
           path="/seller/orders"
-          element={<SellerOrders />}
+          element={
+            <RoleProtectedRoute
+              allowedRole="seller"
+            >
+              <SellerOrders />
+            </RoleProtectedRoute>
+          }
         />
+
+        {/* =================================
+            SELLER ACCOUNT
+        ================================== */}
 
         <Route
           path="/seller/account"
-          element={<SellerAccount />}
+          element={
+            <RoleProtectedRoute
+              allowedRole="seller"
+            >
+              <SellerAccount />
+            </RoleProtectedRoute>
+          }
         />
-
-        <Route
-         path="/orders"
-         element={<Orders />}
-        />
-
-        <Route path="/orders/:id" element={<OrderDetails />} />
-
-        <Route path="/addresses" element={<Addresses />} />
 
       </Routes>
 
       <Footer />
+
     </BrowserRouter>
   );
 }
